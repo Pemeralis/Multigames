@@ -1,0 +1,5 @@
+make all the task timers in a competition stage stop when the minigame has stopped
+
+
+
+competition ==> stage ==> minigame / other ==> phase

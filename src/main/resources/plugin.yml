@@ -1,0 +1,11 @@
+main: multigames.Multigames
+name: Multigames
+version: 0.0.1
+api-version: 1.13
+commands:
+  startcolorstage:
+    usage: /startcolorstage
+  startdebugstage:
+    usage: /startdebugstage
+  compdebug:
+    usage: /compdebug
