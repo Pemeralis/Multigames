@@ -2,6 +2,7 @@ package me.bluevsred12.multigames.challenges;
 
 import me.bluevsred12.multigames.Multigames;
 import me.bluevsred12.multigames.UniqueItem;
+import me.bluevsred12.multigames.utilities.Timer;
 import me.bluevsred12.multigames.utilities.Utilities;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -196,7 +197,13 @@ public class ParkourChallenge {
             player.teleport(teamSelectionLocation);
         }
 
-        scheduler.runTaskLater(plugin, this::startWaitingPeriod, 100);
+        Timer timer = new Timer(
+                plugin,
+                "Team selection period",
+                competingPlayers,
+                this::startWaitingPeriod,
+                12);
+        timer.start();
     }
 
     private void startWaitingPeriod() {
@@ -212,7 +219,13 @@ public class ParkourChallenge {
             }
         }
 
-        scheduler.runTaskLater(plugin, this::startPlayingPeriod, 100);
+        Timer timer = new Timer(
+                plugin,
+                "Getting ready...",
+                competingPlayers,
+                this::startPlayingPeriod,
+                6);
+        timer.start();
     }
 
     private void startPlayingPeriod() {
