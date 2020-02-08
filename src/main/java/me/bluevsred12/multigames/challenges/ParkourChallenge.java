@@ -42,14 +42,20 @@ public class ParkourChallenge {
 
     private static final Material PODIUM_VERIFICATION_TYPE = Material.BLACK_GLAZED_TERRACOTTA;
 
-    private boolean isTeamSelectingPeriod;
-    private boolean isWaitingPeriod;
-    private boolean isPlayingPeriod;
+    private Set<ChallengeState> ongoingStates;
+    private enum ChallengeState {
+        TEAM_SELECTION,
+        WAITING_PERIOD,
+        PLAYING_PERIOD
+    }
 
-    private Listener pressurePlateListener;
-    private Listener playerQuitListener;
-    private Listener playerMoveListener;
-    private Listener blockPlaceListener;
+    private Map<ListenerType, Listener> listeners;
+    private enum ListenerType {
+        PRESSURE_PLATE,
+        PLAYER_QUIT,
+        PLAYER_MOVE,
+        BLOCK_PLACE
+    }
 
     public ParkourChallenge(Multigames plugin) {
         this.plugin = plugin;
@@ -64,9 +70,7 @@ public class ParkourChallenge {
 
         teamSelectionLocation = new Location(world, 68, 194, -308);
 
-        isTeamSelectingPeriod = false;
-        isWaitingPeriod = false;
-        isPlayingPeriod = false;
+        ongoingStates = new HashSet<>();
 
         initializeListeners();
 
@@ -74,112 +78,119 @@ public class ParkourChallenge {
     }
 
     private void initializeListeners() {
-        pressurePlateListener = new Listener() {
-            @EventHandler
-            public void onPlayerInteract(PlayerInteractEvent e) {
-                Player player = e.getPlayer();
-                Block clickedBlock = e.getClickedBlock();
+        listeners = new HashMap<>();
 
-                // When the player steps on a trophy pressure plate during a match.
-                if (
-                        isPlayingPeriod
-                        && e.getAction().equals(Action.PHYSICAL)
-                        && clickedBlock != null
-                        && clickedBlock.getType() == Material.HEAVY_WEIGHTED_PRESSURE_PLATE) {
-                    if (pickupTrophy(player, clickedBlock.getLocation().add(0, -1, 0).getBlock()))
-                        e.setCancelled(true);
-                }
-            }
-        };
+        listeners.put(ListenerType.PRESSURE_PLATE,
+                new Listener() {
+                    @EventHandler
+                    public void onPlayerInteract(PlayerInteractEvent e) {
+                        Player player = e.getPlayer();
+                        Block clickedBlock = e.getClickedBlock();
 
-        playerQuitListener = new Listener() {
-            @EventHandler
-            public void onPlayerLeave(PlayerQuitEvent event) {
-                Player player = event.getPlayer();
-                Bukkit.broadcastMessage(player.getDisplayName() + " has been removed from the game!");
-
-                competingPlayers.remove(player);
-                redTeam.getMembers().remove(player);
-                blueTeam.getMembers().remove(player);
-            }
-        };
-
-        playerMoveListener = new Listener() {
-            private final PotionEffect speedEffect = new PotionEffect(
-                    PotionEffectType.SPEED,
-                    10,
-                    4,
-                    false,
-                    false,
-                    false
-            );
-
-            private final int LAUNCH_COOLDOWN = 8;
-
-            private final Vector upwardLaunch = new Vector(0, 3, 0);
-            private final Vector blueForward = new Vector(-1, 0, -1);
-            private final Vector redForward = new Vector(1, 0, 1);
-
-            private Set<Player> launchedPlayers = new HashSet<>();
-
-            @EventHandler
-            public void onPlayerMove(PlayerMoveEvent event) {
-                Player player = event.getPlayer();
-                Material materialStoodOn = player.getLocation().add(0, -1, 0).getBlock().getType();
-                Set<Player> redMembers = redTeam.getMembers();
-                Set<Player> blueMembers = blueTeam.getMembers();
-                if (isTeamSelectingPeriod) {
-                    if (!redMembers.contains(player) && materialStoodOn.equals(Material.RED_WOOL)) {
-                        blueMembers.remove(player);
-                        redMembers.add(player);
-                        player.sendMessage("Joined red team!");
+                        // When the player steps on a trophy pressure plate during a match.
+                        if (
+                                isPlayingPeriod()
+                                        && e.getAction().equals(Action.PHYSICAL)
+                                        && clickedBlock != null
+                                        && clickedBlock.getType() == Material.HEAVY_WEIGHTED_PRESSURE_PLATE) {
+                            if (pickupTrophy(player, clickedBlock.getLocation().add(0, -1, 0).getBlock()))
+                                e.setCancelled(true);
+                        }
                     }
-                    if (!blueMembers.contains(player) && materialStoodOn.equals(Material.BLUE_WOOL)) {
-                        redMembers.remove(player);
-                        blueMembers.add(player);
-                        player.sendMessage("Joined blue team!");
-                    }
-                }
-                if (isPlayingPeriod) {
-                    Material materialBelowGround = player.getLocation().add(0, -2, 0).getBlock().getType();
-                    if (materialStoodOn.equals(Material.WHITE_CONCRETE)) {
-                        player.addPotionEffect(speedEffect);
-                    }
-                    if (materialBelowGround.equals(Material.BLUE_GLAZED_TERRACOTTA) && !launchedPlayers.contains(player)) {
-                        launchedPlayers.add(player);
-                        player.setVelocity(upwardLaunch);
-                        scheduler.runTaskLater(plugin, () -> {
-                            player.setVelocity(blueForward);
-                            launchedPlayers.remove(player);
-                        }, LAUNCH_COOLDOWN);
-                    }
-                    if (materialBelowGround.equals(Material.RED_GLAZED_TERRACOTTA) && !launchedPlayers.contains(player)) {
-                        launchedPlayers.add(player);
-                        player.setVelocity(upwardLaunch);
-                        scheduler.runTaskLater(plugin, () -> {
-                            player.setVelocity(redForward);
-                            launchedPlayers.remove(player);
-                        }, LAUNCH_COOLDOWN);
-                    }
-                }
-            }
-        };
+                });
 
-        blockPlaceListener = new Listener() {
-            @EventHandler
-            public void onBlockPlace(BlockPlaceEvent event) {
-                validateTrophyPlacement(event);
-            }
-        };
 
-        plugin.getServer().getPluginManager().registerEvents(pressurePlateListener, plugin);
-        plugin.getServer().getPluginManager().registerEvents(playerQuitListener, plugin);
-        plugin.getServer().getPluginManager().registerEvents(playerMoveListener, plugin);
-        plugin.getServer().getPluginManager().registerEvents(blockPlaceListener, plugin);
+        listeners.put(ListenerType.PLAYER_QUIT,
+                new Listener() {
+                    @EventHandler
+                    public void onPlayerLeave(PlayerQuitEvent event) {
+                        Player player = event.getPlayer();
+                        Bukkit.broadcastMessage(player.getDisplayName() + " has been removed from the game!");
+
+                        competingPlayers.remove(player);
+                        redTeam.getMembers().remove(player);
+                        blueTeam.getMembers().remove(player);
+                    }
+                });
+
+        listeners.put(ListenerType.PLAYER_MOVE,
+                new Listener() {
+                    private final PotionEffect speedEffect = new PotionEffect(
+                            PotionEffectType.SPEED,
+                            10,
+                            4,
+                            false,
+                            false,
+                            false
+                    );
+
+                    private final int LAUNCH_COOLDOWN = 8;
+
+                    private final Vector upwardLaunch = new Vector(0, 3, 0);
+                    private final Vector blueForward = new Vector(-1, 0, -1);
+                    private final Vector redForward = new Vector(1, 0, 1);
+
+                    private Set<Player> launchedPlayers = new HashSet<>();
+
+                    @EventHandler
+                    public void onPlayerMove(PlayerMoveEvent event) {
+                        Player player = event.getPlayer();
+                        Material materialStoodOn = player.getLocation().add(0, -1, 0).getBlock().getType();
+                        Set<Player> redMembers = redTeam.getMembers();
+                        Set<Player> blueMembers = blueTeam.getMembers();
+                        if (isTeamSelectingPeriod()) {
+                            if (!redMembers.contains(player) && materialStoodOn.equals(Material.RED_WOOL)) {
+                                blueMembers.remove(player);
+                                redMembers.add(player);
+                                player.sendMessage("Joined red team!");
+                            }
+                            if (!blueMembers.contains(player) && materialStoodOn.equals(Material.BLUE_WOOL)) {
+                                redMembers.remove(player);
+                                blueMembers.add(player);
+                                player.sendMessage("Joined blue team!");
+                            }
+                        }
+                        if (isPlayingPeriod()) {
+                            Material materialBelowGround = player.getLocation().add(0, -2, 0).getBlock().getType();
+                            if (materialStoodOn.equals(Material.WHITE_CONCRETE)) {
+                                player.addPotionEffect(speedEffect);
+                            }
+                            if (materialBelowGround.equals(Material.BLUE_GLAZED_TERRACOTTA) && !launchedPlayers.contains(player)) {
+                                launchedPlayers.add(player);
+                                player.setVelocity(upwardLaunch);
+                                scheduler.runTaskLater(plugin, () -> {
+                                    player.setVelocity(blueForward);
+                                    launchedPlayers.remove(player);
+                                }, LAUNCH_COOLDOWN);
+                            }
+                            if (materialBelowGround.equals(Material.RED_GLAZED_TERRACOTTA) && !launchedPlayers.contains(player)) {
+                                launchedPlayers.add(player);
+                                player.setVelocity(upwardLaunch);
+                                scheduler.runTaskLater(plugin, () -> {
+                                    player.setVelocity(redForward);
+                                    launchedPlayers.remove(player);
+                                }, LAUNCH_COOLDOWN);
+                            }
+                        }
+                    }
+                });
+
+        listeners.put(ListenerType.BLOCK_PLACE,
+                new Listener() {
+                    @EventHandler
+                    public void onBlockPlace(BlockPlaceEvent event) {
+                        validateTrophyPlacement(event);
+                    }
+                });
+
+        for (Listener listener : listeners.values()) {
+            plugin.getServer().getPluginManager().registerEvents(listener, plugin);
+        }
     }
 
+    // game states
     private void startTeamSelectingPeriod() {
-        isTeamSelectingPeriod = true;
+        ongoingStates.add(ChallengeState.TEAM_SELECTION);
 
         for (Player player : competingPlayers) {
             player.teleport(teamSelectionLocation);
@@ -189,8 +200,8 @@ public class ParkourChallenge {
     }
 
     private void startWaitingPeriod() {
-        isTeamSelectingPeriod = false;
-        isWaitingPeriod = true;
+        ongoingStates.clear();
+        ongoingStates.add(ChallengeState.WAITING_PERIOD);
 
         for (Player player : competingPlayers) {
             if (redTeam.getMembers().contains(player)) player.teleport(redTeam.getSpawn());
@@ -205,8 +216,8 @@ public class ParkourChallenge {
     }
 
     private void startPlayingPeriod() {
-        isWaitingPeriod = false;
-        isPlayingPeriod = true;
+        ongoingStates.clear();
+        ongoingStates.add(ChallengeState.PLAYING_PERIOD);
 
         for (Player player : competingPlayers) {
             player.teleport(player.getLocation().add(0, -3, 0));
@@ -214,6 +225,7 @@ public class ParkourChallenge {
         Bukkit.broadcastMessage("The game has begun!");
     }
 
+    // playing period methods
     private void validateTrophyPlacement(BlockPlaceEvent event) {
         Player player = event.getPlayer();
         Block placedBlock = event.getBlockPlaced();
@@ -323,22 +335,6 @@ public class ParkourChallenge {
         }
     }
 
-    private String getTeamName(Team team) {
-        if (team == redTeam) return "red";
-        else return "blue";
-    }
-
-    private Team getOppositeTeam(Team team) {
-        if (team == redTeam) return blueTeam;
-        else return redTeam;
-    }
-
-    private Team getPlayerTeam(Player player) {
-        if (redTeam.getMembers().contains(player)) return redTeam;
-        if (blueTeam.getMembers().contains(player)) return blueTeam;
-        return null;
-    }
-
     private boolean pickupTrophy(Player player, Block woodBlock) {
         Trophy trophy = Trophy.getTrophy(woodBlock.getType());
         Block pressurePlate = woodBlock.getRelative(0,  1, 0);
@@ -362,11 +358,35 @@ public class ParkourChallenge {
         return true;
     }
 
+    // utility
+    public boolean isTeamSelectingPeriod() {
+        return ongoingStates.contains(ChallengeState.TEAM_SELECTION);
+    }
+
+    public boolean isPlayingPeriod() {
+        return ongoingStates.contains(ChallengeState.PLAYING_PERIOD);
+    }
+
+    private String getTeamName(Team team) {
+        if (team == redTeam) return "red";
+        else return "blue";
+    }
+
+    private Team getOppositeTeam(Team team) {
+        if (team == redTeam) return blueTeam;
+        else return redTeam;
+    }
+
+    private Team getPlayerTeam(Player player) {
+        if (redTeam.getMembers().contains(player)) return redTeam;
+        if (blueTeam.getMembers().contains(player)) return blueTeam;
+        return null;
+    }
+
     public void cleanUp() {
-        HandlerList.unregisterAll(pressurePlateListener);
-        HandlerList.unregisterAll(playerQuitListener);
-        HandlerList.unregisterAll(playerMoveListener);
-        HandlerList.unregisterAll(blockPlaceListener);
+        for (Listener listener : listeners.values()) {
+            HandlerList.unregisterAll(listener);
+        }
         redTeam.cleanUp(world);
         blueTeam.cleanUp(world);
     }
