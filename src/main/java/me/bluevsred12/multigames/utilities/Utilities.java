@@ -16,4 +16,8 @@ public class Utilities {
             start.add(direction);
         }
     }
+
+    public static String convertToTimeFormat(int seconds) {
+        return String.format("%02d:%02d", seconds / 60, seconds % 60);
+    }
 }
