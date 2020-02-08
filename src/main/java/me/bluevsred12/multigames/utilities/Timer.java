@@ -1,4 +1,4 @@
-package me.bluevsred12.multigames.Utilities;
+package me.bluevsred12.multigames.utilities;
 
 import me.bluevsred12.multigames.Multigames;
 import org.bukkit.Bukkit;

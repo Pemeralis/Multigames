@@ -2,7 +2,7 @@ package me.bluevsred12.multigames.challenges;
 
 import me.bluevsred12.multigames.Multigames;
 import me.bluevsred12.multigames.UniqueItem;
-import me.bluevsred12.multigames.Utilities.Utilities;
+import me.bluevsred12.multigames.utilities.Utilities;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;

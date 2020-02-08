@@ -1,4 +1,4 @@
-package me.bluevsred12.multigames.Utilities;
+package me.bluevsred12.multigames.utilities;
 
 import org.bukkit.Location;
 import org.bukkit.Particle;

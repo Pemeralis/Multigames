@@ -1,7 +1,7 @@
 package me.bluevsred12.multigames.commands;
 
 import me.bluevsred12.multigames.Multigames;
-import me.bluevsred12.multigames.Utilities.Utilities;
+import me.bluevsred12.multigames.utilities.Utilities;
 import org.bukkit.Particle;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
