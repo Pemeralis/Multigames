@@ -75,7 +75,9 @@ public class Timer {
     }
 
     private void updateBossBarProgress() {
-        bossBar.setTitle(title + " : " + (TOTAL_TIME - secondsPassed));
+        bossBar.setTitle(
+                title + " : "
+                + Utilities.convertToTimeFormat(TOTAL_TIME - secondsPassed));
         bossBar.setProgress(1 - (double) secondsPassed / TOTAL_TIME);
     }
 
