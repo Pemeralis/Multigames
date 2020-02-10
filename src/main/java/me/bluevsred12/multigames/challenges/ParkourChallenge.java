@@ -193,6 +193,15 @@ public class ParkourChallenge {
                             placeTrophy(player, trophy);
                             animateTrophyPlacement(player, trophy, placedBlock);
                         }
+                        if (placementType == TrophyPlacementType.SHATTER) {
+                            new BukkitRunnable() {
+                                @Override
+                                public void run() {
+                                    shatterTrophy(player, trophy);
+                                    animateTrophyShatter(player, trophy, placedBlock);
+                                }
+                            }.runTaskLater(plugin, 5);
+                        }
                     }
                 });
 
@@ -305,8 +314,16 @@ public class ParkourChallenge {
         tracker.setTrophyAnimating(trophy);
     }
 
-    private void shatterTrophy() {
+    private void shatterTrophy(Player player, Trophy trophy) {
+        String playerName = player.getDisplayName();
+        String trophyName = trophy.getDisplayFriendlyName();
+        Team oppositeTeam = getOppositeTeam(player);
 
+        oppositeTeam.getTrophyTracker().removeTrophy(trophy);
+        Bukkit.broadcastMessage(
+                playerName + " has shattered the "
+                        + oppositeTeam.getName() + " team's "
+                        + trophyName + " trophy!");
     }
 
     private void animateTrophyPlacement(Player player, Trophy trophy, Block placedBlock) {
@@ -360,31 +377,18 @@ public class ParkourChallenge {
     }
 
     private void animateTrophyShatter(Player player, Trophy trophy, Block placedBlock) {
-        String playerName = player.getDisplayName();
-        String trophyName = trophy.getDisplayFriendlyName();
-        Team team = getPlayerTeam(player);
-        Team oppositeTeam = getOppositeTeam(team);
-        TrophyTracker opposingTrophyTracker = getOppositeTeam(team).getTrophyTracker();
+        Team oppositeTeam = getOppositeTeam(player);
         Location opposingTrophyLocation = oppositeTeam.getTrophyTracker().getTrophyLocation(trophy);
         Location trophyLocation = placedBlock.getLocation();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                world.getBlockAt(opposingTrophyLocation).setType(Material.AIR);
-                world.getBlockAt(trophyLocation).setType(Material.AIR);
-                Bukkit.broadcastMessage(
-                        playerName + " has shattered the "
-                                + oppositeTeam.getName() + " team's "
-                                + trophyName + " trophy!");
-                Utilities.spawnParticleLine(world, Particle.FLAME, 10, trophyLocation, opposingTrophyLocation);
-                world.spawnParticle(Particle.BLOCK_CRACK, trophyLocation, 8, 0.2, 0.2, 0.2,
-                        trophy.getWood().createBlockData());
-                world.spawnParticle(Particle.BLOCK_CRACK, opposingTrophyLocation, 8, 0.2, 0.2, 0.2,
-                        trophy.getWood().createBlockData());
-                world.playSound(opposingTrophyLocation, Sound.BLOCK_GLASS_BREAK, 50f, 0f);
-                opposingTrophyTracker.removeTrophy(trophy);
-            }
-        }.runTaskLater(plugin, 5);
+
+        world.getBlockAt(opposingTrophyLocation).setType(Material.AIR);
+        world.getBlockAt(trophyLocation).setType(Material.AIR);
+        Utilities.spawnParticleLine(world, Particle.FLAME, 10, trophyLocation, opposingTrophyLocation);
+        world.spawnParticle(Particle.BLOCK_CRACK, trophyLocation, 8, 0.2, 0.2, 0.2,
+                trophy.getWood().createBlockData());
+        world.spawnParticle(Particle.BLOCK_CRACK, opposingTrophyLocation, 8, 0.2, 0.2, 0.2,
+                trophy.getWood().createBlockData());
+        world.playSound(opposingTrophyLocation, Sound.BLOCK_GLASS_BREAK, 50f, 0f);
     }
 
 
@@ -423,6 +427,10 @@ public class ParkourChallenge {
     private Team getOppositeTeam(Team team) {
         if (team == redTeam) return blueTeam;
         else return redTeam;
+    }
+
+    private Team getOppositeTeam(Player player) {
+        return getOppositeTeam(getPlayerTeam(player));
     }
 
     private Team getPlayerTeam(Player player) {

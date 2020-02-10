@@ -19,10 +19,17 @@ public class MysteryCommand implements CommandExecutor {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length < 1) {
             sender.sendMessage("Not enough arguments!");
+            return true;
         }
+        String argument = args[0];
+        if (argument.equalsIgnoreCase("particles")) testParticles(sender);
+        return true;
+    }
+
+    private void testParticles(CommandSender sender) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("No! This is not how you're supposed to play the game!");
-            return true;
+            return;
         }
         Player player = (Player) sender;
         Utilities.spawnParticleLine(
@@ -33,6 +40,5 @@ public class MysteryCommand implements CommandExecutor {
                 player.getLocation().add(0, 10, 0)
         );
         player.sendMessage("Poof!");
-        return true;
     }
 }
