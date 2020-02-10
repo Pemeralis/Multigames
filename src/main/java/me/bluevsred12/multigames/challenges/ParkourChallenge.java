@@ -29,21 +29,21 @@ import java.util.Map;
 import java.util.Set;
 
 public class ParkourChallenge {
-    private Multigames plugin;
+    private final Multigames plugin;
 
-    private BukkitScheduler scheduler;
+    private final BukkitScheduler scheduler;
 
-    private World world;
+    private final World world;
 
-    private Set<Player> competingPlayers;
-    private Team redTeam;
-    private Team blueTeam;
+    private final Set<Player> competingPlayers;
+    private final Team redTeam;
+    private final Team blueTeam;
 
-    private Location teamSelectionLocation;
+    private final Location teamSelectionLocation;
 
     private static final Material PODIUM_VERIFICATION_TYPE = Material.BLACK_GLAZED_TERRACOTTA;
 
-    private Set<ChallengeState> ongoingStates;
+    private final Set<ChallengeState> ongoingStates;
     private enum ChallengeState {
         TEAM_SELECTION,
         WAITING_PERIOD,
@@ -66,8 +66,8 @@ public class ParkourChallenge {
         world = plugin.getMainWorld();
 
         competingPlayers = plugin.getOnlinePlayers();
-        redTeam = new Team(new Location(world, 61.0, 178, -316.0));
-        blueTeam = new Team(new Location(world, 75.0, 178, -301.0));
+        redTeam = new Team("Red", new Location(world, 61.0, 178, -316.0));
+        blueTeam = new Team("Blue", new Location(world, 75.0, 178, -301.0));
 
         teamSelectionLocation = new Location(world, 68, 194, -308);
 
@@ -131,7 +131,7 @@ public class ParkourChallenge {
                     private final Vector blueForward = new Vector(-1, 0, -1);
                     private final Vector redForward = new Vector(1, 0, 1);
 
-                    private Set<Player> launchedPlayers = new HashSet<>();
+                    private final Set<Player> launchedPlayers = new HashSet<>();
 
                     @EventHandler
                     public void onPlayerMove(PlayerMoveEvent event) {
@@ -180,7 +180,19 @@ public class ParkourChallenge {
                 new Listener() {
                     @EventHandler
                     public void onBlockPlace(BlockPlaceEvent event) {
-                        validateTrophyPlacement(event);
+                        Player player = event.getPlayer();
+                        Block placedBlock = event.getBlockPlaced();
+                        Trophy trophy = Trophy.getTrophy(placedBlock);
+
+                        TrophyPlacementType placementType = determineTrophyPlacementType(player, placedBlock);
+                        if (placementType == TrophyPlacementType.INVALID
+                                || placementType == TrophyPlacementType.MISMATCHED_PODIUM
+                                || placementType == TrophyPlacementType.PODIUMS_CLOGGED)
+                            event.setBuild(false);
+                        if (placementType == TrophyPlacementType.PODIUM_COLLECT) {
+                            placeTrophy();
+                            animateTrophyPlacement(player, trophy, placedBlock);
+                        }
                     }
                 });
 
@@ -239,114 +251,139 @@ public class ParkourChallenge {
     }
 
     // playing period methods
-    private void validateTrophyPlacement(BlockPlaceEvent event) {
-        Player player = event.getPlayer();
-        Block placedBlock = event.getBlockPlaced();
-        Block blockAdjacent = event.getBlockAgainst();
-        Block blockBelow = event.getBlockPlaced().getRelative(0, -3, 0);
-
+    private TrophyPlacementType determineTrophyPlacementType(Player player, Block placedBlock) {
+        Block blockAdjacent = placedBlock.getRelative(0, -1, 0);
+        Block blockTwiceBelow = placedBlock.getRelative(0, -3, 0);
         Trophy trophy = Trophy.getTrophy(placedBlock.getType());
 
-        if (trophy == null) { // Was the block a trophy?
-            event.setBuild(false);
-        } else if (blockBelow.getType() != PODIUM_VERIFICATION_TYPE) { // Was this placed on top a podium?
-            event.setBuild(false);
-        } else if (trophy.getStairs() != blockAdjacent.getType()) { // Was this placed on top a podium? (Double checking)
+        // Was the block a trophy?
+        if (trophy == null)
+            return TrophyPlacementType.INVALID;
+
+        // Was this placed on top of a podium? (Check verification block below the podium)
+        if (blockTwiceBelow.getType() != PODIUM_VERIFICATION_TYPE)
+            return TrophyPlacementType.INVALID;
+
+        // Was this placed on the right type of stairs?
+        if (trophy.getStairs() != blockAdjacent.getType()) {
             player.spawnParticle(Particle.BARRIER, placedBlock.getLocation().add(0.5, 0.5,0.5), 1);
             player.playSound(placedBlock.getLocation(), Sound.BLOCK_BAMBOO_FALL, 1f, 1f);
-            event.setBuild(false);
-        } else {
-            if (!placeTrophy(player, trophy, placedBlock)) {
-                event.setBuild(false);
-                player.playSound(placedBlock.getLocation(), Sound.BLOCK_BAMBOO_FALL, 1f, 1f);
-            }
+            return TrophyPlacementType.MISMATCHED_PODIUM;
         }
+
+        // Is this player part of a team?
+        Team team = getPlayerTeam(player);
+        if (team == null)
+            return TrophyPlacementType.INVALID;
+
+        TrophyTracker podium = team.getTrophyTracker();
+        TrophyTracker oppositePodium = getOppositeTeam(team).getTrophyTracker();
+
+        // Are we missing this trophy, or does the enemy have a trophy we can shatter?
+        if (!podium.hasCollectedTrophy(trophy)) {
+            return TrophyPlacementType.PODIUM_COLLECT;
+        } else if (oppositePodium.hasCollectedTrophy(trophy)) {
+            return TrophyPlacementType.SHATTER;
+        } else {
+            player.sendMessage("You must wait until you lose your existing trophy, or when the enemy gains one!");
+            return TrophyPlacementType.PODIUMS_CLOGGED;
+        }
+
     }
 
-    private boolean placeTrophy(Player player, Trophy trophy, Block placedBlock) {
+    private void placeTrophy(Player player, Trophy trophy) {
+        String playerName = player.getDisplayName();
+        String trophyName = trophy.getDisplayFriendlyName();
+        Team team = getPlayerTeam(player);
+
+        Bukkit.broadcastMessage(
+                playerName + " has placed the "
+                + trophyName + " trophy on "
+                + team.getName() + " team's podium!");
+    }
+
+    private void shatterTrophy() {
+
+    }
+
+    private void animateTrophyPlacement(Player player, Trophy trophy, Block placedBlock) {
+        String playerName = player.getDisplayName();
+        String trophyName = trophy.getDisplayFriendlyName();
+        Team team = getPlayerTeam(player);
+        TrophyTracker trophyTracker = team.getTrophyTracker();
+
+        new BukkitRunnable() {
+            private int step = 0;
+            private Block currentBlock = placedBlock;
+            private final Location startLocation = placedBlock.getLocation().add(0.5, 0.5, 0.5);
+            private final Location targetLocation = startLocation.clone().add(0, 3, 0);
+
+            @Override
+            public void run() {
+                if (step != 0) {
+                    currentBlock.getRelative(BlockFace.UP).setType(currentBlock.getType());
+                    currentBlock.setType(Material.AIR);
+                    currentBlock = currentBlock.getRelative(BlockFace.UP);
+                    Utilities.spawnParticleLine(world, Particle.CLOUD, 5, startLocation, targetLocation);
+                }
+                if (step == 0) {
+                    world.playSound(
+                            player.getLocation(),
+                            Sound.BLOCK_NOTE_BLOCK_PLING,
+                            SoundCategory.BLOCKS,
+                            1f,
+                            1f
+                    );
+                } else if (step == 1 || step == 2) {
+                    world.playSound(
+                            currentBlock.getLocation(),
+                            Sound.ITEM_FLINTANDSTEEL_USE,
+                            1f,
+                            1f
+                    );
+                } else if (step >= 3) {
+                    world.playSound(
+                            currentBlock.getLocation(),
+                            Sound.ENTITY_BLAZE_HURT,
+                            1f,
+                            0f
+                    );
+                    trophyTracker.addAnimatingTrophy(trophy, currentBlock.getLocation());
+                    this.cancel();
+                }
+                step++;
+            }
+        }.runTaskTimer(plugin, 0, 20);
+    }
+
+    private void animateTrophyShatter(Player player, Trophy trophy, Block placedBlock) {
         String playerName = player.getDisplayName();
         String trophyName = trophy.getDisplayFriendlyName();
         Team team = getPlayerTeam(player);
         Team oppositeTeam = getOppositeTeam(team);
-        if (team == null) {
-            Bukkit.broadcastMessage("If you can see this message, I'm bad at programming!");
-            return false;
-        }
-
-        TrophyTracker trophyTracker = team.getTrophyTracker();
         TrophyTracker opposingTrophyTracker = getOppositeTeam(team).getTrophyTracker();
-
-        boolean isAlreadyPlaced = trophyTracker.hasTrophy(trophy);
-        boolean isOppositeTrophyPlaced = opposingTrophyTracker.hasTrophy(trophy);
-        if (isAlreadyPlaced && isOppositeTrophyPlaced) { // Shatter the enemy trophy if you and them both have one.
-            Location opposingTrophyLocation = oppositeTeam.getTrophyTracker().getTrophyLocation(trophy);
-            Location trophyLocation = placedBlock.getLocation();
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    world.getBlockAt(opposingTrophyLocation).setType(Material.AIR);
-                    world.getBlockAt(trophyLocation).setType(Material.AIR);
-                    Bukkit.broadcastMessage(playerName + " has shattered the " + getTeamName(oppositeTeam) + " team's " + trophyName + " trophy!");
-                    Utilities.spawnParticleLine(world, Particle.FLAME, 10, trophyLocation, opposingTrophyLocation);
-                    world.spawnParticle(Particle.BLOCK_CRACK, trophyLocation, 8, 0.2, 0.2, 0.2,
-                            trophy.getWood().createBlockData());
-                    world.spawnParticle(Particle.BLOCK_CRACK, opposingTrophyLocation, 8, 0.2, 0.2, 0.2,
-                            trophy.getWood().createBlockData());
-                    world.playSound(opposingTrophyLocation, Sound.BLOCK_GLASS_BREAK, 50f, 0f);
-                    opposingTrophyTracker.removeTrophy(trophy);
-                }
-            }.runTaskLater(plugin, 5);
-            return true;
-        } else if (!isAlreadyPlaced) { // Place the trophy onto the team podium
-            new BukkitRunnable() {
-                private int step = 0;
-                private Block currentBlock = placedBlock;
-                private Location startLocation = placedBlock.getLocation().add(0.5, 0.5, 0.5);
-                private Location targetLocation = startLocation.clone().add(0, 3, 0);
-
-                @Override
-                public void run() {
-                    if (step != 0) {
-                        currentBlock.getRelative(BlockFace.UP).setType(currentBlock.getType());
-                        currentBlock.setType(Material.AIR);
-                        currentBlock = currentBlock.getRelative(BlockFace.UP);
-                        Utilities.spawnParticleLine(world, Particle.CLOUD, 5, startLocation, targetLocation);
-                    }
-                    if (step == 0) {
-                        world.playSound(
-                                player.getLocation(),
-                                Sound.BLOCK_NOTE_BLOCK_PLING,
-                                SoundCategory.BLOCKS,
-                                1f,
-                                1f
-                        );
-                    } else if (step == 1 || step == 2) {
-                        world.playSound(
-                                currentBlock.getLocation(),
-                                Sound.ITEM_FLINTANDSTEEL_USE,
-                                1f,
-                                1f
-                        );
-                    } else if (step >= 3) {
-                        world.playSound(
-                                currentBlock.getLocation(),
-                                Sound.ENTITY_BLAZE_HURT,
-                                1f,
-                                0f
-                        );
-                        Bukkit.broadcastMessage(playerName + " has placed the " + trophyName + " trophy on " + getTeamName(team) + " team's podium!");
-                        trophyTracker.addTrophy(trophy, currentBlock.getLocation());
-                        this.cancel();
-                    }
-                    step++;
-                }
-            }.runTaskTimer(plugin, 0, 20);
-            return true;
-        } else {
-            player.sendMessage("You must wait until you lose your existing trophy, or when the enemy gains one!");
-            return false;
-        }
+        Location opposingTrophyLocation = oppositeTeam.getTrophyTracker().getTrophyLocation(trophy);
+        Location trophyLocation = placedBlock.getLocation();
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                world.getBlockAt(opposingTrophyLocation).setType(Material.AIR);
+                world.getBlockAt(trophyLocation).setType(Material.AIR);
+                Bukkit.broadcastMessage(
+                        playerName + " has shattered the "
+                                + oppositeTeam.getName() + " team's "
+                                + trophyName + " trophy!");
+                Utilities.spawnParticleLine(world, Particle.FLAME, 10, trophyLocation, opposingTrophyLocation);
+                world.spawnParticle(Particle.BLOCK_CRACK, trophyLocation, 8, 0.2, 0.2, 0.2,
+                        trophy.getWood().createBlockData());
+                world.spawnParticle(Particle.BLOCK_CRACK, opposingTrophyLocation, 8, 0.2, 0.2, 0.2,
+                        trophy.getWood().createBlockData());
+                world.playSound(opposingTrophyLocation, Sound.BLOCK_GLASS_BREAK, 50f, 0f);
+                opposingTrophyTracker.removeTrophy(trophy);
+            }
+        }.runTaskLater(plugin, 5);
     }
+
 
     private boolean pickupTrophy(Player player, Block woodBlock) {
         Trophy trophy = Trophy.getTrophy(woodBlock.getType());
@@ -380,11 +417,6 @@ public class ParkourChallenge {
         return ongoingStates.contains(ChallengeState.PLAYING_PERIOD);
     }
 
-    private String getTeamName(Team team) {
-        if (team == redTeam) return "red";
-        else return "blue";
-    }
-
     private Team getOppositeTeam(Team team) {
         if (team == redTeam) return blueTeam;
         else return redTeam;
@@ -406,15 +438,21 @@ public class ParkourChallenge {
 }
 
 class Team {
-    private Set<Player> members;
+    private final String name;
 
-    private Location waitingSpawn;
+    private final Location waitingSpawn;
 
-    private TrophyTracker trophyTracker;
+    private final Set<Player> members;
 
-    Team(Location waitingSpawn) {
-        members = new HashSet<>();
+    private final TrophyTracker trophyTracker;
+
+    Team(String teamName, Location waitingSpawn) {
+        name = teamName;
+
         this.waitingSpawn = waitingSpawn;
+
+        members = new HashSet<>();
+
         trophyTracker = new TrophyTracker();
     }
 
@@ -433,17 +471,29 @@ class Team {
     public void cleanUp(World world) {
         trophyTracker.cleanUp(world);
     }
+
+    public String getName() {
+        return name;
+    }
 }
 
 class TrophyTracker {
-    private Map<Trophy, Location> trophyMap;
+    private final Map<Trophy, Location> trophyMap;
+    private final Map<Trophy, TrophyStatus> statuses;
 
     TrophyTracker() {
         trophyMap = new HashMap<>();
+        statuses = new HashMap<>();
     }
 
-    public void addTrophy(Trophy trophy, Location location) {
+    public void addAnimatingTrophy(Trophy trophy, Location location) {
         trophyMap.put(trophy, location);
+    }
+
+    public TrophyStatus getTrophyStatus(Trophy trophy) {
+        TrophyStatus status = statuses.get(trophy);
+        if (status == null) return TrophyStatus.MISSING;
+        return status;
     }
 
     public void removeTrophy(Trophy trophy) {
@@ -454,8 +504,8 @@ class TrophyTracker {
         return trophyMap.get(trophy).clone().add(0.5, 0.5, 0.5);
     }
 
-    public boolean hasTrophy(Trophy trophy) {
-        return trophyMap.get(trophy) != null;
+    public boolean hasCollectedTrophy(Trophy trophy) {
+        return getTrophyStatus(trophy) == TrophyStatus.COLLECTED;
     }
 
     public void cleanUp(World world) {
@@ -476,7 +526,7 @@ enum Trophy {
 
     private final String nameID;
     private final String displayFriendlyName;
-    private ItemStack itemStack;
+    private final ItemStack itemStack;
 
     Trophy(String displayFriendlyName) {
         nameID = this.name();
@@ -489,6 +539,11 @@ enum Trophy {
             if (trophy.getWood().equals(searchedMaterial)) return trophy;
         }
         return null;
+    }
+
+    public static Trophy getTrophy(Block block) {
+        if (block == null) return null;
+        return getTrophy(block.getType());
     }
 
     public Material getWood() {
@@ -506,4 +561,18 @@ enum Trophy {
     public String getDisplayFriendlyName() {
         return displayFriendlyName;
     }
+}
+
+enum TrophyPlacementType {
+    INVALID,
+    MISMATCHED_PODIUM,
+    PODIUMS_CLOGGED,
+    PODIUM_COLLECT,
+    SHATTER
+}
+
+enum TrophyStatus {
+    MISSING,
+    PLACED,
+    COLLECTED
 }
