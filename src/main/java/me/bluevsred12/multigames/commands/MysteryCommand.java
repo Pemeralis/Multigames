@@ -23,7 +23,20 @@ public class MysteryCommand implements CommandExecutor {
         }
         String argument = args[0];
         if (argument.equalsIgnoreCase("particles")) testParticles(sender);
+        else if (argument.equalsIgnoreCase("titles")) testTitles(sender);
+        else sender.sendMessage(argument + " is not a testable argument!");
         return true;
+    }
+
+    private void testTitles(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("No! This is not how you're supposed to play the game!");
+            return;
+        }
+        Player player = (Player) sender;
+
+        player.sendActionBar("ActionBar message sent!");
+        player.sendTitle("Title message has been sent!", "Subtitle too!", 0, 40, 20);
     }
 
     private void testParticles(CommandSender sender) {
