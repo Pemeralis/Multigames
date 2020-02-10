@@ -190,7 +190,7 @@ public class ParkourChallenge {
                                 || placementType == TrophyPlacementType.PODIUMS_CLOGGED)
                             event.setBuild(false);
                         if (placementType == TrophyPlacementType.PODIUM_COLLECT) {
-                            placeTrophy();
+                            placeTrophy(player, trophy);
                             animateTrophyPlacement(player, trophy, placedBlock);
                         }
                     }
@@ -280,9 +280,9 @@ public class ParkourChallenge {
         TrophyTracker oppositePodium = getOppositeTeam(team).getTrophyTracker();
 
         // Are we missing this trophy, or does the enemy have a trophy we can shatter?
-        if (!podium.hasCollectedTrophy(trophy)) {
+        if (!podium.hasTrophy(trophy)) {
             return TrophyPlacementType.PODIUM_COLLECT;
-        } else if (oppositePodium.hasCollectedTrophy(trophy)) {
+        } else if (oppositePodium.isTrophyCollected(trophy)) {
             return TrophyPlacementType.SHATTER;
         } else {
             player.sendMessage("You must wait until you lose your existing trophy, or when the enemy gains one!");
@@ -295,11 +295,14 @@ public class ParkourChallenge {
         String playerName = player.getDisplayName();
         String trophyName = trophy.getDisplayFriendlyName();
         Team team = getPlayerTeam(player);
+        TrophyTracker tracker = team.getTrophyTracker();
 
         Bukkit.broadcastMessage(
                 playerName + " has placed the "
                 + trophyName + " trophy on "
                 + team.getName() + " team's podium!");
+
+        tracker.setTrophyAnimating(trophy);
     }
 
     private void shatterTrophy() {
@@ -348,7 +351,7 @@ public class ParkourChallenge {
                             1f,
                             0f
                     );
-                    trophyTracker.addAnimatingTrophy(trophy, currentBlock.getLocation());
+                    trophyTracker.setTrophyCollected(trophy, currentBlock.getLocation());
                     this.cancel();
                 }
                 step++;
@@ -478,16 +481,21 @@ class Team {
 }
 
 class TrophyTracker {
-    private final Map<Trophy, Location> trophyMap;
+    private final Map<Trophy, Location> locations;
     private final Map<Trophy, TrophyStatus> statuses;
 
     TrophyTracker() {
-        trophyMap = new HashMap<>();
+        locations = new HashMap<>();
         statuses = new HashMap<>();
     }
 
-    public void addAnimatingTrophy(Trophy trophy, Location location) {
-        trophyMap.put(trophy, location);
+    public void setTrophyAnimating(Trophy trophy) {
+        statuses.put(trophy, TrophyStatus.ANIMATING);
+    }
+
+    public void setTrophyCollected(Trophy trophy, Location location) {
+        locations.put(trophy, location);
+        statuses.put(trophy, TrophyStatus.COLLECTED);
     }
 
     public TrophyStatus getTrophyStatus(Trophy trophy) {
@@ -497,19 +505,25 @@ class TrophyTracker {
     }
 
     public void removeTrophy(Trophy trophy) {
-        trophyMap.remove(trophy);
+        locations.remove(trophy);
+        statuses.put(trophy, TrophyStatus.MISSING);
     }
 
     public Location getTrophyLocation(Trophy trophy) {
-        return trophyMap.get(trophy).clone().add(0.5, 0.5, 0.5);
+        return locations.get(trophy).clone().add(0.5, 0.5, 0.5);
     }
 
-    public boolean hasCollectedTrophy(Trophy trophy) {
+    public boolean hasTrophy(Trophy trophy) {
+        return getTrophyStatus(trophy) == TrophyStatus.COLLECTED
+                || getTrophyStatus(trophy) == TrophyStatus.ANIMATING;
+    }
+
+    public boolean isTrophyCollected(Trophy trophy) {
         return getTrophyStatus(trophy) == TrophyStatus.COLLECTED;
     }
 
     public void cleanUp(World world) {
-        for (Location location : trophyMap.values()) {
+        for (Location location : locations.values()) {
             world.getBlockAt(location).setType(Material.AIR);
         }
     }
@@ -573,6 +587,6 @@ enum TrophyPlacementType {
 
 enum TrophyStatus {
     MISSING,
-    PLACED,
+    ANIMATING,
     COLLECTED
 }
