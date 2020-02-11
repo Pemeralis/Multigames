@@ -197,8 +197,8 @@ public class ParkourChallenge {
                             new BukkitRunnable() {
                                 @Override
                                 public void run() {
-                                    shatterTrophy(player, trophy);
                                     animateTrophyShatter(player, trophy, placedBlock);
+                                    shatterTrophy(player, trophy);
                                 }
                             }.runTaskLater(plugin, 5);
                         }
@@ -319,7 +319,6 @@ public class ParkourChallenge {
         String trophyName = trophy.getDisplayFriendlyName();
         Team oppositeTeam = getOppositeTeam(player);
 
-        oppositeTeam.getTrophyTracker().removeTrophy(trophy);
         Bukkit.broadcastMessage(
                 playerName + " has shattered the "
                         + oppositeTeam.getName() + " team's "
@@ -327,8 +326,6 @@ public class ParkourChallenge {
     }
 
     private void animateTrophyPlacement(Player player, Trophy trophy, Block placedBlock) {
-        String playerName = player.getDisplayName();
-        String trophyName = trophy.getDisplayFriendlyName();
         Team team = getPlayerTeam(player);
         TrophyTracker trophyTracker = team.getTrophyTracker();
 
@@ -381,14 +378,23 @@ public class ParkourChallenge {
         Location opposingTrophyLocation = oppositeTeam.getTrophyTracker().getTrophyLocation(trophy);
         Location trophyLocation = placedBlock.getLocation();
 
-        world.getBlockAt(opposingTrophyLocation).setType(Material.AIR);
         world.getBlockAt(trophyLocation).setType(Material.AIR);
         Utilities.spawnParticleLine(world, Particle.FLAME, 10, trophyLocation, opposingTrophyLocation);
-        world.spawnParticle(Particle.BLOCK_CRACK, trophyLocation, 8, 0.2, 0.2, 0.2,
+        world.spawnParticle(Particle.BLOCK_CRACK, trophyLocation, 12, 0.2, 0.2, 0.2,
                 trophy.getWood().createBlockData());
-        world.spawnParticle(Particle.BLOCK_CRACK, opposingTrophyLocation, 8, 0.2, 0.2, 0.2,
-                trophy.getWood().createBlockData());
-        world.playSound(opposingTrophyLocation, Sound.BLOCK_GLASS_BREAK, 50f, 0f);
+        world.playSound(opposingTrophyLocation, Sound.BLOCK_GLASS_FALL, 50f, 0f);
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                world.spawnParticle(Particle.BLOCK_CRACK, opposingTrophyLocation, 12, 0.2, 0.2, 0.2,
+                        trophy.getWood().createBlockData());
+                world.getBlockAt(opposingTrophyLocation).setType(Material.AIR);
+                world.playSound(opposingTrophyLocation, Sound.BLOCK_GLASS_BREAK, 50f, 0f);
+
+                oppositeTeam.getTrophyTracker().removeTrophy(trophy);
+            }
+        }.runTaskLater(plugin, 10);
     }
 
 
