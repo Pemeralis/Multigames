@@ -1,5 +1,6 @@
 package me.bluevsred12.multigames.utilities;
 
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.World;
@@ -19,5 +20,9 @@ public class Utilities {
 
     public static String convertToTimeFormat(int seconds) {
         return String.format("%01d:%02d", seconds / 60, seconds % 60);
+    }
+
+    public static String colorText(String text) {
+        return ChatColor.translateAlternateColorCodes('&', text);
     }
 }
