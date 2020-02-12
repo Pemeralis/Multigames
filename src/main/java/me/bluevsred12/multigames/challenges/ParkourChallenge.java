@@ -416,11 +416,11 @@ public class ParkourChallenge {
     }
 
     // utility
-    public boolean isTeamSelectingPeriod() {
+    private boolean isTeamSelectingPeriod() {
         return ongoingStates.contains(ChallengeState.TEAM_SELECTION);
     }
 
-    public boolean isPlayingPeriod() {
+    private boolean isPlayingPeriod() {
         return ongoingStates.contains(ChallengeState.PLAYING_PERIOD);
     }
 
