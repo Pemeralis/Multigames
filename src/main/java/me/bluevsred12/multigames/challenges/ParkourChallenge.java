@@ -50,7 +50,7 @@ public class ParkourChallenge {
         PLAYING_PERIOD
     }
 
-    private Map<ListenerType, Listener> listeners;
+    private Set<Listener> listeners;
     private enum ListenerType {
         PRESSURE_PLATE,
         PLAYER_QUIT,
@@ -79,133 +79,14 @@ public class ParkourChallenge {
     }
 
     private void initializeListeners() {
-        listeners = new HashMap<>();
+        listeners = new HashSet<>();
 
-        listeners.put(ListenerType.PRESSURE_PLATE,
-                new Listener() {
-                    @EventHandler
-                    public void onPlayerInteract(PlayerInteractEvent e) {
-                        Player player = e.getPlayer();
-                        Block clickedBlock = e.getClickedBlock();
+        listeners.add(new PlayerQuitListener(this, plugin));
+        listeners.add(new PlayerMoveListener(this, plugin));
+        listeners.add(new BlockPlaceListener(this, plugin));
+        listeners.add(new PressurePlateListener(this, plugin));
 
-                        // When the player steps on a trophy pressure plate during a match.
-                        if (
-                                isPlayingPeriod()
-                                        && e.getAction().equals(Action.PHYSICAL)
-                                        && clickedBlock != null
-                                        && clickedBlock.getType() == Material.HEAVY_WEIGHTED_PRESSURE_PLATE) {
-                            if (pickupTrophy(player, clickedBlock.getLocation().add(0, -1, 0).getBlock()))
-                                e.setCancelled(true);
-                        }
-                    }
-                });
-
-
-        listeners.put(ListenerType.PLAYER_QUIT,
-                new Listener() {
-                    @EventHandler
-                    public void onPlayerLeave(PlayerQuitEvent event) {
-                        Player player = event.getPlayer();
-                        Bukkit.broadcastMessage(player.getDisplayName() + " has been removed from the game!");
-
-                        competingPlayers.remove(player);
-                        redTeam.getMembers().remove(player);
-                        blueTeam.getMembers().remove(player);
-                    }
-                });
-
-        listeners.put(ListenerType.PLAYER_MOVE,
-                new Listener() {
-                    private final PotionEffect speedEffect = new PotionEffect(
-                            PotionEffectType.SPEED,
-                            10,
-                            4,
-                            false,
-                            false,
-                            false
-                    );
-
-                    private final int LAUNCH_COOLDOWN = 8;
-
-                    private final Vector upwardLaunch = new Vector(0, 3, 0);
-                    private final Vector blueForward = new Vector(-1, 0, -1);
-                    private final Vector redForward = new Vector(1, 0, 1);
-
-                    private final Set<Player> launchedPlayers = new HashSet<>();
-
-                    @EventHandler
-                    public void onPlayerMove(PlayerMoveEvent event) {
-                        Player player = event.getPlayer();
-                        Material materialStoodOn = player.getLocation().add(0, -1, 0).getBlock().getType();
-                        Set<Player> redMembers = redTeam.getMembers();
-                        Set<Player> blueMembers = blueTeam.getMembers();
-                        if (isTeamSelectingPeriod()) {
-                            if (!redMembers.contains(player) && materialStoodOn.equals(Material.RED_WOOL)) {
-                                blueMembers.remove(player);
-                                redMembers.add(player);
-                                player.sendMessage("Joined red team!");
-                            }
-                            if (!blueMembers.contains(player) && materialStoodOn.equals(Material.BLUE_WOOL)) {
-                                redMembers.remove(player);
-                                blueMembers.add(player);
-                                player.sendMessage("Joined blue team!");
-                            }
-                        }
-                        if (isPlayingPeriod()) {
-                            Material materialBelowGround = player.getLocation().add(0, -2, 0).getBlock().getType();
-                            if (materialStoodOn.equals(Material.WHITE_CONCRETE)) {
-                                player.addPotionEffect(speedEffect);
-                            }
-                            if (materialBelowGround.equals(Material.BLUE_GLAZED_TERRACOTTA) && !launchedPlayers.contains(player)) {
-                                launchedPlayers.add(player);
-                                player.setVelocity(upwardLaunch);
-                                scheduler.runTaskLater(plugin, () -> {
-                                    player.setVelocity(blueForward);
-                                    launchedPlayers.remove(player);
-                                }, LAUNCH_COOLDOWN);
-                            }
-                            if (materialBelowGround.equals(Material.RED_GLAZED_TERRACOTTA) && !launchedPlayers.contains(player)) {
-                                launchedPlayers.add(player);
-                                player.setVelocity(upwardLaunch);
-                                scheduler.runTaskLater(plugin, () -> {
-                                    player.setVelocity(redForward);
-                                    launchedPlayers.remove(player);
-                                }, LAUNCH_COOLDOWN);
-                            }
-                        }
-                    }
-                });
-
-        listeners.put(ListenerType.BLOCK_PLACE,
-                new Listener() {
-                    @EventHandler
-                    public void onBlockPlace(BlockPlaceEvent event) {
-                        Player player = event.getPlayer();
-                        Block placedBlock = event.getBlockPlaced();
-                        Trophy trophy = Trophy.getTrophy(placedBlock);
-
-                        TrophyPlacementType placementType = determineTrophyPlacementType(player, placedBlock);
-                        if (placementType == TrophyPlacementType.INVALID
-                                || placementType == TrophyPlacementType.MISMATCHED_PODIUM
-                                || placementType == TrophyPlacementType.PODIUMS_CLOGGED)
-                            event.setBuild(false);
-                        if (placementType == TrophyPlacementType.PODIUM_COLLECT) {
-                            placeTrophy(player, trophy);
-                            animateTrophyPlacement(player, trophy, placedBlock);
-                        }
-                        if (placementType == TrophyPlacementType.SHATTER) {
-                            new BukkitRunnable() {
-                                @Override
-                                public void run() {
-                                    shatterTrophy(player, trophy);
-                                    animateTrophyShatter(player, trophy, placedBlock);
-                                }
-                            }.runTaskLater(plugin, 5);
-                        }
-                    }
-                });
-
-        for (Listener listener : listeners.values()) {
+        for (Listener listener : listeners) {
             plugin.getServer().getPluginManager().registerEvents(listener, plugin);
         }
     }
@@ -260,7 +141,7 @@ public class ParkourChallenge {
     }
 
     // playing period methods
-    private TrophyPlacementType determineTrophyPlacementType(Player player, Block placedBlock) {
+    protected TrophyPlacementType determineTrophyPlacementType(Player player, Block placedBlock) {
         Block blockAdjacent = placedBlock.getRelative(0, -1, 0);
         Block blockTwiceBelow = placedBlock.getRelative(0, -3, 0);
         Trophy trophy = Trophy.getTrophy(placedBlock.getType());
@@ -300,7 +181,7 @@ public class ParkourChallenge {
 
     }
 
-    private void placeTrophy(Player player, Trophy trophy) {
+    protected void placeTrophy(Player player, Trophy trophy) {
         String playerName = player.getDisplayName();
         String trophyName = trophy.getDisplayFriendlyName();
         Team team = getPlayerTeam(player);
@@ -314,7 +195,7 @@ public class ParkourChallenge {
         tracker.setTrophyAnimating(trophy);
     }
 
-    private void shatterTrophy(Player player, Trophy trophy) {
+    protected void shatterTrophy(Player player, Trophy trophy) {
         String playerName = player.getDisplayName();
         String trophyName = trophy.getDisplayFriendlyName();
         Team oppositeTeam = getOppositeTeam(player);
@@ -326,7 +207,7 @@ public class ParkourChallenge {
                         + trophyName + " trophy!");
     }
 
-    private void animateTrophyPlacement(Player player, Trophy trophy, Block placedBlock) {
+    protected void animateTrophyPlacement(Player player, Trophy trophy, Block placedBlock) {
         String playerName = player.getDisplayName();
         String trophyName = trophy.getDisplayFriendlyName();
         Team team = getPlayerTeam(player);
@@ -376,7 +257,7 @@ public class ParkourChallenge {
         }.runTaskTimer(plugin, 0, 20);
     }
 
-    private void animateTrophyShatter(Player player, Trophy trophy, Block placedBlock) {
+    protected void animateTrophyShatter(Player player, Trophy trophy, Block placedBlock) {
         Team oppositeTeam = getOppositeTeam(player);
         Location opposingTrophyLocation = oppositeTeam.getTrophyTracker().getTrophyLocation(trophy);
         Location trophyLocation = placedBlock.getLocation();
@@ -391,8 +272,7 @@ public class ParkourChallenge {
         world.playSound(opposingTrophyLocation, Sound.BLOCK_GLASS_BREAK, 50f, 0f);
     }
 
-
-    private boolean pickupTrophy(Player player, Block woodBlock) {
+    protected boolean pickupTrophy(Player player, Block woodBlock) {
         Trophy trophy = Trophy.getTrophy(woodBlock.getType());
         Block pressurePlate = woodBlock.getRelative(0,  1, 0);
         if (trophy == null) return false;
@@ -416,12 +296,16 @@ public class ParkourChallenge {
     }
 
     // utility
-    private boolean isTeamSelectingPeriod() {
+    protected boolean isTeamSelectingPeriod() {
         return ongoingStates.contains(ChallengeState.TEAM_SELECTION);
     }
 
-    private boolean isPlayingPeriod() {
+    protected boolean isPlayingPeriod() {
         return ongoingStates.contains(ChallengeState.PLAYING_PERIOD);
+    }
+
+    protected Set<Player> getCompetingPlayers() {
+        return competingPlayers;
     }
 
     private Team getOppositeTeam(Team team) {
@@ -439,12 +323,190 @@ public class ParkourChallenge {
         return null;
     }
 
+    protected Team getRedTeam() {
+        return redTeam;
+    }
+
+    protected Team getBlueTeam() {
+        return blueTeam;
+    }
+
     public void cleanUp() {
-        for (Listener listener : listeners.values()) {
+        for (Listener listener : listeners) {
             HandlerList.unregisterAll(listener);
         }
         redTeam.cleanUp(world);
         blueTeam.cleanUp(world);
+    }
+}
+
+class PlayerQuitListener implements Listener {
+    private ParkourChallenge challenge;
+    private Multigames plugin;
+
+    private Set<Player> competingPlayers;
+    private Team redTeam;
+    private Team blueTeam;
+
+    public PlayerQuitListener(ParkourChallenge challenge, Multigames plugin) {
+        this.challenge = challenge;
+        this.plugin = plugin;
+
+        competingPlayers = challenge.getCompetingPlayers();
+        redTeam = challenge.getRedTeam();
+        blueTeam = challenge.getBlueTeam();
+    }
+
+    @EventHandler
+    public void onPlayerLeave(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        Bukkit.broadcastMessage(player.getDisplayName() + " has been removed from the game!");
+
+        competingPlayers.remove(player);
+        redTeam.getMembers().remove(player);
+        blueTeam.getMembers().remove(player);
+    }
+}
+
+class PlayerMoveListener implements Listener {
+    private ParkourChallenge challenge;
+    private Multigames plugin;
+    private BukkitScheduler scheduler;
+
+    private Team redTeam;
+    private Team blueTeam;
+
+    private final PotionEffect speedEffect = new PotionEffect(
+            PotionEffectType.SPEED,
+            10,
+            4,
+            false,
+            false,
+            false
+    );
+
+    private final int LAUNCH_COOLDOWN = 8;
+
+    private final Vector upwardLaunch = new Vector(0, 3, 0);
+    private final Vector blueForward = new Vector(-1, 0, -1);
+    private final Vector redForward = new Vector(1, 0, 1);
+
+    private final Set<Player> launchedPlayers = new HashSet<>();
+
+    PlayerMoveListener(ParkourChallenge challenge, Multigames plugin) {
+        this.challenge = challenge;
+        this.plugin = plugin;
+        scheduler = Bukkit.getScheduler();
+
+        redTeam = challenge.getRedTeam();
+        blueTeam = challenge.getBlueTeam();
+    }
+
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        Material materialStoodOn = player.getLocation().add(0, -1, 0).getBlock().getType();
+        Set<Player> redMembers = redTeam.getMembers();
+        Set<Player> blueMembers = blueTeam.getMembers();
+        if (challenge.isTeamSelectingPeriod()) {
+            if (!redMembers.contains(player) && materialStoodOn.equals(Material.RED_WOOL)) {
+                blueMembers.remove(player);
+                redMembers.add(player);
+                player.sendMessage("Joined red team!");
+            }
+            if (!blueMembers.contains(player) && materialStoodOn.equals(Material.BLUE_WOOL)) {
+                redMembers.remove(player);
+                blueMembers.add(player);
+                player.sendMessage("Joined blue team!");
+            }
+        }
+        if (challenge.isPlayingPeriod()) {
+            Material materialBelowGround = player.getLocation().add(0, -2, 0).getBlock().getType();
+            if (materialStoodOn.equals(Material.WHITE_CONCRETE)) {
+                player.addPotionEffect(speedEffect);
+            }
+            if (materialBelowGround.equals(Material.BLUE_GLAZED_TERRACOTTA) && !launchedPlayers.contains(player)) {
+                launchedPlayers.add(player);
+                player.setVelocity(upwardLaunch);
+                scheduler.runTaskLater(plugin, () -> {
+                    player.setVelocity(blueForward);
+                    launchedPlayers.remove(player);
+                }, LAUNCH_COOLDOWN);
+            }
+            if (materialBelowGround.equals(Material.RED_GLAZED_TERRACOTTA) && !launchedPlayers.contains(player)) {
+                launchedPlayers.add(player);
+                player.setVelocity(upwardLaunch);
+                scheduler.runTaskLater(plugin, () -> {
+                    player.setVelocity(redForward);
+                    launchedPlayers.remove(player);
+                }, LAUNCH_COOLDOWN);
+            }
+        }
+    }
+}
+
+class BlockPlaceListener implements Listener {
+    private ParkourChallenge challenge;
+    private Multigames plugin;
+
+    BlockPlaceListener(ParkourChallenge challenge, Multigames plugin) {
+        this.challenge = challenge;
+        this.plugin = plugin;
+    }
+
+    @EventHandler
+    public void onBlockPlace(BlockPlaceEvent event) {
+        trophyPlacement(event);
+    }
+
+    private void trophyPlacement(BlockPlaceEvent event) {
+        Player player = event.getPlayer();
+        Block placedBlock = event.getBlockPlaced();
+        Trophy trophy = Trophy.getTrophy(placedBlock);
+
+        TrophyPlacementType placementType = challenge.determineTrophyPlacementType(player, placedBlock);
+        if (placementType == TrophyPlacementType.INVALID
+                || placementType == TrophyPlacementType.MISMATCHED_PODIUM
+                || placementType == TrophyPlacementType.PODIUMS_CLOGGED)
+            event.setBuild(false);
+        if (placementType == TrophyPlacementType.PODIUM_COLLECT) {
+            challenge.placeTrophy(player, trophy);
+            challenge.animateTrophyPlacement(player, trophy, placedBlock);
+        }
+        if (placementType == TrophyPlacementType.SHATTER) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    challenge.shatterTrophy(player, trophy);
+                    challenge.animateTrophyShatter(player, trophy, placedBlock);
+                }
+            }.runTaskLater(plugin, 5);
+        }
+    }
+}
+
+class PressurePlateListener implements Listener {
+    private ParkourChallenge challenge;
+    private Multigames plugin;
+
+    public PressurePlateListener(ParkourChallenge challenge, Multigames plugin) {
+        this.challenge = challenge;
+        this.plugin = plugin;
+    }
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent e) {
+        Player player = e.getPlayer();
+        Block clickedBlock = e.getClickedBlock();
+
+        // When the player steps on a trophy pressure plate during a match.
+        if (
+                challenge.isPlayingPeriod()
+                        && e.getAction().equals(Action.PHYSICAL)
+                        && clickedBlock != null
+                        && clickedBlock.getType() == Material.HEAVY_WEIGHTED_PRESSURE_PLATE) {
+            if (challenge.pickupTrophy(player, clickedBlock.getLocation().add(0, -1, 0).getBlock()))
+                e.setCancelled(true);
+        }
     }
 }
 
