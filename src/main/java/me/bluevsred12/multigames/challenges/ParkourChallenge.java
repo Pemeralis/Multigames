@@ -187,13 +187,15 @@ public class ParkourChallenge {
         // Are we missing this trophy, or does the enemy have a trophy we can shatter?
         if (!podium.hasTrophy(trophy)) {
             return TrophyPlacementType.PODIUM_COLLECT;
+        } else if (isEndgamePeriod()) {
+            player.sendMessage("You cannot shatter enemy trophies during the endgame period!");
+            return TrophyPlacementType.INVALID;
         } else if (oppositePodium.isTrophyCollected(trophy)) {
             return TrophyPlacementType.SHATTER;
         } else {
             player.sendMessage("You must wait until you lose your existing trophy, or when the enemy gains one!");
             return TrophyPlacementType.PODIUMS_CLOGGED;
         }
-
     }
 
     protected void placeTrophy(Player player, Trophy trophy) {
@@ -315,6 +317,10 @@ public class ParkourChallenge {
 
     protected boolean isPlayingPeriod() {
         return ongoingStates.contains(ChallengeState.PLAYING_PERIOD);
+    }
+
+    protected boolean isEndgamePeriod() {
+        return ongoingStates.contains(ChallengeState.ENDGAME);
     }
 
     protected Set<Player> getCompetingPlayers() {
