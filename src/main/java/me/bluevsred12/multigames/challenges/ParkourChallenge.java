@@ -47,7 +47,7 @@ public class ParkourChallenge {
     private enum ChallengeState {
         TEAM_SELECTION,
         WAITING_PERIOD,
-        PLAYING_PERIOD
+        ENDGAME, PLAYING_PERIOD
     }
 
     private Set<Listener> listeners;
@@ -138,6 +138,21 @@ public class ParkourChallenge {
             player.teleport(player.getLocation().add(0, -3, 0));
         }
         Bukkit.broadcastMessage("The game has begun!");
+
+
+        Timer timer = new Timer(
+                plugin,
+                "Time remaining",
+                competingPlayers,
+                this::startEndgamePeriod,
+                45
+        );
+        timer.start();
+    }
+
+    private void startEndgamePeriod() {
+        ongoingStates.add(ChallengeState.ENDGAME);
+        Bukkit.broadcastMessage("The endgame has begun! Trophy shattering has been DISABLED!");
     }
 
     // playing period methods
@@ -208,8 +223,6 @@ public class ParkourChallenge {
     }
 
     protected void animateTrophyPlacement(Player player, Trophy trophy, Block placedBlock) {
-        String playerName = player.getDisplayName();
-        String trophyName = trophy.getDisplayFriendlyName();
         Team team = getPlayerTeam(player);
         TrophyTracker trophyTracker = team.getTrophyTracker();
 
@@ -341,12 +354,12 @@ public class ParkourChallenge {
 }
 
 class PlayerQuitListener implements Listener {
-    private ParkourChallenge challenge;
-    private Multigames plugin;
+    private final ParkourChallenge challenge;
+    private final Multigames plugin;
 
-    private Set<Player> competingPlayers;
-    private Team redTeam;
-    private Team blueTeam;
+    private final Set<Player> competingPlayers;
+    private final Team redTeam;
+    private final Team blueTeam;
 
     public PlayerQuitListener(ParkourChallenge challenge, Multigames plugin) {
         this.challenge = challenge;
@@ -369,12 +382,12 @@ class PlayerQuitListener implements Listener {
 }
 
 class PlayerMoveListener implements Listener {
-    private ParkourChallenge challenge;
-    private Multigames plugin;
-    private BukkitScheduler scheduler;
+    private final ParkourChallenge challenge;
+    private final Multigames plugin;
+    private final BukkitScheduler scheduler;
 
-    private Team redTeam;
-    private Team blueTeam;
+    private final Team redTeam;
+    private final Team blueTeam;
 
     private final PotionEffect speedEffect = new PotionEffect(
             PotionEffectType.SPEED,
@@ -446,8 +459,8 @@ class PlayerMoveListener implements Listener {
 }
 
 class BlockPlaceListener implements Listener {
-    private ParkourChallenge challenge;
-    private Multigames plugin;
+    private final ParkourChallenge challenge;
+    private final Multigames plugin;
 
     BlockPlaceListener(ParkourChallenge challenge, Multigames plugin) {
         this.challenge = challenge;
@@ -486,8 +499,8 @@ class BlockPlaceListener implements Listener {
 }
 
 class PressurePlateListener implements Listener {
-    private ParkourChallenge challenge;
-    private Multigames plugin;
+    private final ParkourChallenge challenge;
+    private final Multigames plugin;
 
     public PressurePlateListener(ParkourChallenge challenge, Multigames plugin) {
         this.challenge = challenge;
