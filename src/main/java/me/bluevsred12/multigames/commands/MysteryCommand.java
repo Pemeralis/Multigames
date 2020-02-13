@@ -8,9 +8,9 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 public class MysteryCommand implements CommandExecutor {
     private Multigames plugin;
@@ -37,8 +37,9 @@ public class MysteryCommand implements CommandExecutor {
             return true;
         }
         String argument = args[0];
+        String[] testArguments = Arrays.copyOfRange(args, 0, args.length - 1);
         Test test = runnableTests.get(argument);
-        if (test != null) test.run(sender);
+        if (test != null) test.run(sender, testArguments);
         else sender.sendMessage(argument + " is not a testable argument!");
         return true;
     }
@@ -49,18 +50,28 @@ public class MysteryCommand implements CommandExecutor {
         }
     }
 
-    private void testTitles(CommandSender sender) {
+    private void testTitles(CommandSender sender, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("No! This is not how you're supposed to play the game!");
             return;
         }
+        if (args.length < 1) {
+            sender.sendMessage("You didn't provide anything to display!");
+        }
         Player player = (Player) sender;
+
+        for (int i = 0; i < args.length; i++) {
+            args[i] = Utilities.colorText(args[i]);
+        }
+        String actionBar = args.length >= 1 ? args[0] : null;
+        String title = args.length >= 2 ? args[1] : null;
+        String subtitle = args.length >= 3 ? args[2] : null;
 
         player.sendActionBar("ActionBar message sent!");
         player.sendTitle("Title message has been sent!", "Subtitle too!", 0, 40, 20);
     }
 
-    private void testParticles(CommandSender sender) {
+    private void testParticles(CommandSender sender, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("No! This is not how you're supposed to play the game!");
             return;
@@ -78,5 +89,5 @@ public class MysteryCommand implements CommandExecutor {
 }
 
 interface Test {
-    void run(CommandSender sender);
+    void run(CommandSender sender, String[] args);
 }
