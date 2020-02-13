@@ -19,6 +19,7 @@ public class Utilities {
     }
 
     public static String convertToTimeFormat(int seconds) {
+        if (seconds < 60) return String.format("%01d", seconds % 60);
         return String.format("%01d:%02d", seconds / 60, seconds % 60);
     }
 
