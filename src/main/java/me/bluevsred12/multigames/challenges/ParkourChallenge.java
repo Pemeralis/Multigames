@@ -156,7 +156,7 @@ public class ParkourChallenge {
     }
 
     // playing period methods
-    protected TrophyPlacementType determineTrophyPlacementType(Player player, Block placedBlock) {
+    TrophyPlacementType determineTrophyPlacementType(Player player, Block placedBlock) {
         Block blockAdjacent = placedBlock.getRelative(0, -1, 0);
         Block blockTwiceBelow = placedBlock.getRelative(0, -3, 0);
         Trophy trophy = Trophy.getTrophy(placedBlock.getType());
@@ -198,7 +198,7 @@ public class ParkourChallenge {
         }
     }
 
-    protected void placeTrophy(Player player, Trophy trophy) {
+    void placeTrophy(Player player, Trophy trophy) {
         String playerName = player.getDisplayName();
         String trophyName = trophy.getDisplayFriendlyName();
         Team team = getPlayerTeam(player);
@@ -212,7 +212,7 @@ public class ParkourChallenge {
         tracker.setTrophyAnimating(trophy);
     }
 
-    protected void shatterTrophy(Player player, Trophy trophy) {
+    void shatterTrophy(Player player, Trophy trophy) {
         String playerName = player.getDisplayName();
         String trophyName = trophy.getDisplayFriendlyName();
         Team oppositeTeam = getOppositeTeam(player);
@@ -224,7 +224,7 @@ public class ParkourChallenge {
                         + trophyName + " trophy!");
     }
 
-    protected void animateTrophyPlacement(Player player, Trophy trophy, Block placedBlock) {
+    void animateTrophyPlacement(Player player, Trophy trophy, Block placedBlock) {
         Team team = getPlayerTeam(player);
         TrophyTracker trophyTracker = team.getTrophyTracker();
 
@@ -272,7 +272,7 @@ public class ParkourChallenge {
         }.runTaskTimer(plugin, 0, 20);
     }
 
-    protected void animateTrophyShatter(Player player, Trophy trophy, Block placedBlock) {
+    void animateTrophyShatter(Player player, Trophy trophy, Block placedBlock) {
         Team oppositeTeam = getOppositeTeam(player);
         Location opposingTrophyLocation = oppositeTeam.getTrophyTracker().getTrophyLocation(trophy);
         Location trophyLocation = placedBlock.getLocation();
@@ -287,7 +287,7 @@ public class ParkourChallenge {
         world.playSound(opposingTrophyLocation, Sound.BLOCK_GLASS_BREAK, 50f, 0f);
     }
 
-    protected boolean pickupTrophy(Player player, Block woodBlock) {
+    boolean pickupTrophy(Player player, Block woodBlock) {
         Trophy trophy = Trophy.getTrophy(woodBlock.getType());
         Block pressurePlate = woodBlock.getRelative(0,  1, 0);
         if (trophy == null) return false;
@@ -311,19 +311,19 @@ public class ParkourChallenge {
     }
 
     // utility
-    protected boolean isTeamSelectingPeriod() {
+    boolean isTeamSelectingPeriod() {
         return ongoingStates.contains(ChallengeState.TEAM_SELECTION);
     }
 
-    protected boolean isPlayingPeriod() {
+    boolean isPlayingPeriod() {
         return ongoingStates.contains(ChallengeState.PLAYING_PERIOD);
     }
 
-    protected boolean isEndgamePeriod() {
+    private boolean isEndgamePeriod() {
         return ongoingStates.contains(ChallengeState.ENDGAME);
     }
 
-    protected Set<Player> getCompetingPlayers() {
+    Set<Player> getCompetingPlayers() {
         return competingPlayers;
     }
 
@@ -342,11 +342,11 @@ public class ParkourChallenge {
         return null;
     }
 
-    protected Team getRedTeam() {
+    Team getRedTeam() {
         return redTeam;
     }
 
-    protected Team getBlueTeam() {
+    Team getBlueTeam() {
         return blueTeam;
     }
 
@@ -367,7 +367,7 @@ class PlayerQuitListener implements Listener {
     private final Team redTeam;
     private final Team blueTeam;
 
-    public PlayerQuitListener(ParkourChallenge challenge, Multigames plugin) {
+    PlayerQuitListener(ParkourChallenge challenge, Multigames plugin) {
         this.challenge = challenge;
         this.plugin = plugin;
 
@@ -508,7 +508,7 @@ class PressurePlateListener implements Listener {
     private final ParkourChallenge challenge;
     private final Multigames plugin;
 
-    public PressurePlateListener(ParkourChallenge challenge, Multigames plugin) {
+    PressurePlateListener(ParkourChallenge challenge, Multigames plugin) {
         this.challenge = challenge;
         this.plugin = plugin;
     }
@@ -556,15 +556,15 @@ class Team {
         return waitingSpawn.clone();
     }
 
-    public TrophyTracker getTrophyTracker() {
+    TrophyTracker getTrophyTracker() {
         return trophyTracker;
     }
 
-    public void cleanUp(World world) {
+    void cleanUp(World world) {
         trophyTracker.cleanUp(world);
     }
 
-    public String getName() {
+    String getName() {
         return name;
     }
 }
@@ -578,40 +578,40 @@ class TrophyTracker {
         statuses = new HashMap<>();
     }
 
-    public void setTrophyAnimating(Trophy trophy) {
+    void setTrophyAnimating(Trophy trophy) {
         statuses.put(trophy, TrophyStatus.ANIMATING);
     }
 
-    public void setTrophyCollected(Trophy trophy, Location location) {
+    void setTrophyCollected(Trophy trophy, Location location) {
         locations.put(trophy, location);
         statuses.put(trophy, TrophyStatus.COLLECTED);
     }
 
-    public TrophyStatus getTrophyStatus(Trophy trophy) {
+    private TrophyStatus getTrophyStatus(Trophy trophy) {
         TrophyStatus status = statuses.get(trophy);
         if (status == null) return TrophyStatus.MISSING;
         return status;
     }
 
-    public void removeTrophy(Trophy trophy) {
+    void removeTrophy(Trophy trophy) {
         locations.remove(trophy);
         statuses.put(trophy, TrophyStatus.MISSING);
     }
 
-    public Location getTrophyLocation(Trophy trophy) {
+    Location getTrophyLocation(Trophy trophy) {
         return locations.get(trophy).clone().add(0.5, 0.5, 0.5);
     }
 
-    public boolean hasTrophy(Trophy trophy) {
+    boolean hasTrophy(Trophy trophy) {
         return getTrophyStatus(trophy) == TrophyStatus.COLLECTED
                 || getTrophyStatus(trophy) == TrophyStatus.ANIMATING;
     }
 
-    public boolean isTrophyCollected(Trophy trophy) {
+    boolean isTrophyCollected(Trophy trophy) {
         return getTrophyStatus(trophy) == TrophyStatus.COLLECTED;
     }
 
-    public void cleanUp(World world) {
+    void cleanUp(World world) {
         for (Location location : locations.values()) {
             world.getBlockAt(location).setType(Material.AIR);
         }
