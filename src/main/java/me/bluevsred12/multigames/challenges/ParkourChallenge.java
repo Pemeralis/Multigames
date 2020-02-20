@@ -7,6 +7,8 @@ import me.bluevsred12.multigames.utilities.Utilities;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
@@ -51,12 +53,6 @@ public class ParkourChallenge {
     }
 
     private Set<Listener> listeners;
-    private enum ListenerType {
-        PRESSURE_PLATE,
-        PLAYER_QUIT,
-        PLAYER_MOVE,
-        BLOCK_PLACE
-    }
 
     public ParkourChallenge(Multigames plugin) {
         this.plugin = plugin;
@@ -99,12 +95,15 @@ public class ParkourChallenge {
             player.teleport(teamSelectionLocation);
         }
 
-        Timer timer = new Timer(
-                plugin,
-                "Team selection period",
-                competingPlayers,
-                this::startWaitingPeriod,
-                12);
+        Timer timer = new Timer.TimerBuilder(
+                        plugin,
+                        competingPlayers,
+                        12,
+                        "Team selection period")
+                .setRunnable(this::startWaitingPeriod)
+                .setBarStyle(BarStyle.SEGMENTED_12)
+                .setBarColor(BarColor.YELLOW)
+                .build();
         timer.start();
     }
 
@@ -121,12 +120,16 @@ public class ParkourChallenge {
             }
         }
 
-        Timer timer = new Timer(
+
+        Timer timer = new Timer.TimerBuilder(
                 plugin,
-                "Getting ready...",
                 competingPlayers,
-                this::startPlayingPeriod,
-                6);
+                6,
+                "Getting ready...")
+                .setRunnable(this::startPlayingPeriod)
+                .setBarStyle(BarStyle.SEGMENTED_12)
+                .setBarColor(BarColor.YELLOW)
+                .build();
         timer.start();
     }
 
@@ -140,13 +143,15 @@ public class ParkourChallenge {
         Bukkit.broadcastMessage("The game has begun!");
 
 
-        Timer timer = new Timer(
+        Timer timer = new Timer.TimerBuilder(
                 plugin,
-                "Time remaining",
                 competingPlayers,
-                this::startEndgamePeriod,
-                45
-        );
+                45,
+                "Time remaining")
+                .setRunnable(this::startEndgamePeriod)
+                .setBarStyle(BarStyle.SEGMENTED_6)
+                .setBarColor(BarColor.YELLOW)
+                .build();
         timer.start();
     }
 
