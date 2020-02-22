@@ -2,6 +2,7 @@ package me.bluevsred12.multigames.challenges;
 
 import me.bluevsred12.multigames.Multigames;
 import me.bluevsred12.multigames.UniqueItem;
+import me.bluevsred12.multigames.utilities.PlayerNotifier;
 import me.bluevsred12.multigames.utilities.Timer;
 import me.bluevsred12.multigames.utilities.Utilities;
 import org.bukkit.*;
@@ -34,6 +35,7 @@ public class ParkourChallenge {
     private final Multigames plugin;
 
     private final BukkitScheduler scheduler;
+    private final PlayerNotifier notifier;
 
     private final World world;
 
@@ -41,12 +43,11 @@ public class ParkourChallenge {
     private final Team redTeam;
     private final Team blueTeam;
 
-    private final Location teamSelectionLocation;
-
+    private final Location TEAM_SELECTION_LOCATION;
     private static final Material PODIUM_VERIFICATION_TYPE = Material.BLACK_GLAZED_TERRACOTTA;
 
-    private final Set<ChallengeState> ongoingStates;
-    private enum ChallengeState {
+    private final Set<GameState> ongoingStates;
+    private enum GameState {
         TEAM_SELECTION,
         WAITING_PERIOD,
         ENDGAME, PLAYING_PERIOD
@@ -58,6 +59,7 @@ public class ParkourChallenge {
         this.plugin = plugin;
 
         scheduler = Bukkit.getScheduler();
+        notifier = new PlayerNotifier(getCompetingPlayers());
 
         world = plugin.getMainWorld();
 
@@ -65,7 +67,7 @@ public class ParkourChallenge {
         redTeam = new Team("Red", new Location(world, 61.0, 178, -316.0));
         blueTeam = new Team("Blue", new Location(world, 75.0, 178, -301.0));
 
-        teamSelectionLocation = new Location(world, 68, 194, -308);
+        TEAM_SELECTION_LOCATION = new Location(world, 68, 194, -308);
 
         ongoingStates = new HashSet<>();
 
@@ -89,10 +91,10 @@ public class ParkourChallenge {
 
     // game states
     private void startTeamSelectingPeriod() {
-        ongoingStates.add(ChallengeState.TEAM_SELECTION);
+        ongoingStates.add(GameState.TEAM_SELECTION);
 
         for (Player player : competingPlayers) {
-            player.teleport(teamSelectionLocation);
+            player.teleport(TEAM_SELECTION_LOCATION);
         }
 
         Timer timer = new Timer.TimerBuilder(
@@ -109,7 +111,7 @@ public class ParkourChallenge {
 
     private void startWaitingPeriod() {
         ongoingStates.clear();
-        ongoingStates.add(ChallengeState.WAITING_PERIOD);
+        ongoingStates.add(GameState.WAITING_PERIOD);
 
         for (Player player : competingPlayers) {
             if (redTeam.getMembers().contains(player)) player.teleport(redTeam.getSpawn());
@@ -135,13 +137,13 @@ public class ParkourChallenge {
 
     private void startPlayingPeriod() {
         ongoingStates.clear();
-        ongoingStates.add(ChallengeState.PLAYING_PERIOD);
+        ongoingStates.add(GameState.PLAYING_PERIOD);
 
         for (Player player : competingPlayers) {
             player.teleport(player.getLocation().add(0, -3, 0));
         }
-        Bukkit.broadcastMessage("The game has begun!");
 
+        notifier.sendTitle("The game has begun!", "", 60);
 
         Timer timer = new Timer.TimerBuilder(
                 plugin,
@@ -156,11 +158,16 @@ public class ParkourChallenge {
     }
 
     private void startEndgamePeriod() {
-        ongoingStates.add(ChallengeState.ENDGAME);
+        ongoingStates.add(GameState.ENDGAME);
         Bukkit.broadcastMessage("The endgame has begun! Trophy shattering has been DISABLED!");
     }
 
     // playing period methods
+//    void checkTrophiesStatus() {
+//        if (!ongoingStates.contains(GameState.PLAYING_PERIOD)) return;
+//        if ()
+//    }
+
     TrophyPlacementType determineTrophyPlacementType(Player player, Block placedBlock) {
         Block blockAdjacent = placedBlock.getRelative(0, -1, 0);
         Block blockTwiceBelow = placedBlock.getRelative(0, -3, 0);
@@ -312,20 +319,20 @@ public class ParkourChallenge {
             woodBlock.setType(trophy.getWood());
             pressurePlate.setType(Material.HEAVY_WEIGHTED_PRESSURE_PLATE);
         }, 60);
-        return true;
+        return true; // notify players about placement
     }
 
     // utility
     boolean isTeamSelectingPeriod() {
-        return ongoingStates.contains(ChallengeState.TEAM_SELECTION);
+        return ongoingStates.contains(GameState.TEAM_SELECTION);
     }
 
     boolean isPlayingPeriod() {
-        return ongoingStates.contains(ChallengeState.PLAYING_PERIOD);
+        return ongoingStates.contains(GameState.PLAYING_PERIOD);
     }
 
     private boolean isEndgamePeriod() {
-        return ongoingStates.contains(ChallengeState.ENDGAME);
+        return ongoingStates.contains(GameState.ENDGAME);
     }
 
     Set<Player> getCompetingPlayers() {
