@@ -104,7 +104,7 @@ public class ParkourChallenge {
                         "Team selection period")
                 .setRunnable(this::startWaitingPeriod)
                 .setBarStyle(BarStyle.SEGMENTED_12)
-                .setBarColor(BarColor.YELLOW)
+                .setBarColor(BarColor.WHITE)
                 .build();
         timer.start();
     }
@@ -129,8 +129,9 @@ public class ParkourChallenge {
                 6,
                 "Getting ready...")
                 .setRunnable(this::startPlayingPeriod)
-                .setBarStyle(BarStyle.SEGMENTED_12)
-                .setBarColor(BarColor.YELLOW)
+                .setBarStyle(BarStyle.SEGMENTED_6)
+                .setBarColor(BarColor.WHITE)
+                .setEndingTickingSound(Sound.BLOCK_NOTE_BLOCK_HAT, 2, 3)
                 .build();
         timer.start();
     }
