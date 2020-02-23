@@ -36,6 +36,7 @@ public class ParkourChallenge {
 
     private final BukkitScheduler scheduler;
     private final PlayerNotifier notifier;
+    private Timer ongoingTimer;
 
     private final World world;
 
@@ -58,12 +59,13 @@ public class ParkourChallenge {
     public ParkourChallenge(Multigames plugin) {
         this.plugin = plugin;
 
+        competingPlayers = plugin.getOnlinePlayers();
+
         scheduler = Bukkit.getScheduler();
         notifier = new PlayerNotifier(getCompetingPlayers());
+        ongoingTimer = null;
 
         world = plugin.getMainWorld();
-
-        competingPlayers = plugin.getOnlinePlayers();
         redTeam = new Team("Red", new Location(world, 61.0, 178, -316.0));
         blueTeam = new Team("Blue", new Location(world, 75.0, 178, -301.0));
 
@@ -123,7 +125,7 @@ public class ParkourChallenge {
         }
 
 
-        Timer timer = new Timer.TimerBuilder(
+        ongoingTimer = new Timer.TimerBuilder(
                 plugin,
                 competingPlayers,
                 6,
@@ -133,7 +135,7 @@ public class ParkourChallenge {
                 .setBarColor(BarColor.WHITE)
                 .setEndingTickingSound(Sound.BLOCK_NOTE_BLOCK_HAT, 2, 3)
                 .build();
-        timer.start();
+        ongoingTimer.start();
     }
 
     private void startPlayingPeriod() {
@@ -146,28 +148,22 @@ public class ParkourChallenge {
 
         notifier.sendTitle("The game has begun!", "", 60);
 
-        Timer timer = new Timer.TimerBuilder(
+        ongoingTimer = new Timer.TimerBuilder(
                 plugin,
                 competingPlayers,
-                45,
+                450,
                 "Time remaining")
                 .setRunnable(this::startEndgamePeriod)
                 .setBarStyle(BarStyle.SEGMENTED_6)
                 .setBarColor(BarColor.YELLOW)
                 .build();
-        timer.start();
+        ongoingTimer.start();
     }
 
     private void startEndgamePeriod() {
         ongoingStates.add(GameState.ENDGAME);
-        Bukkit.broadcastMessage("The endgame has begun! Trophy shattering has been DISABLED!");
+        notifier.sendTitle("The endgame has begun!", "Trophy shattering has been DISABLED", 60);
     }
-
-    // playing period methods
-//    void checkTrophiesStatus() {
-//        if (!ongoingStates.contains(GameState.PLAYING_PERIOD)) return;
-//        if ()
-//    }
 
     TrophyPlacementType determineTrophyPlacementType(Player player, Block placedBlock) {
         Block blockAdjacent = placedBlock.getRelative(0, -1, 0);
@@ -223,6 +219,7 @@ public class ParkourChallenge {
                 + team.getName() + " team's podium!");
 
         tracker.setTrophyAnimating(trophy);
+        notifyTeamProgress();
     }
 
     void shatterTrophy(Player player, Trophy trophy) {
@@ -230,11 +227,13 @@ public class ParkourChallenge {
         String trophyName = trophy.getDisplayFriendlyName();
         Team oppositeTeam = getOppositeTeam(player);
 
-        oppositeTeam.getTrophyTracker().removeTrophy(trophy);
         Bukkit.broadcastMessage(
                 playerName + " has shattered the "
                         + oppositeTeam.getName() + " team's "
                         + trophyName + " trophy!");
+
+        oppositeTeam.getTrophyTracker().removeTrophy(trophy);
+        notifyTeamProgress();
     }
 
     void animateTrophyPlacement(Player player, Trophy trophy, Block placedBlock) {
@@ -324,6 +323,25 @@ public class ParkourChallenge {
     }
 
     // utility
+    void notifyTeamProgress() {
+        StringBuilder redProgressBuilder = new StringBuilder();
+        StringBuilder blueProgressBuilder = new StringBuilder();
+
+        for (Trophy trophy : Trophy.values()) {
+            if (redTeam.getTrophyTracker().hasTrophy(trophy)) redProgressBuilder.append("&4\u2588");
+            else redProgressBuilder.append("&4&l_");
+            if (blueTeam.getTrophyTracker().hasTrophy(trophy)) blueProgressBuilder.append("&1\u2588");
+            else blueProgressBuilder.append("&1&l_");
+        }
+
+        String trophyProgress = "&f&l[ " + redProgressBuilder.toString() + " &f&l| " + blueProgressBuilder.toString() + " &f&l]";
+
+        notifier.sendChatMessage("&8&l>>---------------------<<");
+        notifier.sendChatMessage("&6&nCurrent trophy progress");
+        notifier.sendChatMessage("    " + trophyProgress);
+        notifier.sendChatMessage("&8&l>>---------------------<<");
+    }
+
     boolean isTeamSelectingPeriod() {
         return ongoingStates.contains(GameState.TEAM_SELECTION);
     }
@@ -367,6 +385,9 @@ public class ParkourChallenge {
         for (Listener listener : listeners) {
             HandlerList.unregisterAll(listener);
         }
+
+        if (ongoingTimer != null) ongoingTimer.cleanUp();
+
         redTeam.cleanUp(world);
         blueTeam.cleanUp(world);
     }
@@ -509,8 +530,8 @@ class BlockPlaceListener implements Listener {
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    challenge.shatterTrophy(player, trophy);
                     challenge.animateTrophyShatter(player, trophy, placedBlock);
+                    challenge.shatterTrophy(player, trophy);
                 }
             }.runTaskLater(plugin, 5);
         }
