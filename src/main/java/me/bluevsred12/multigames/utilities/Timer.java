@@ -63,15 +63,15 @@ public class Timer {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (secondsPassed >= TOTAL_TIME) {
+                incrementTimer();
+                playTickingSound();
+                updateBossBarProgress();
+                if (getRemainingSeconds() == 0) {
                     System.out.println("Timer has stopped!");
                     runRunnable();
                     cleanUp();
                     cancel();
                 }
-                incrementTimer();
-                playTickingSound();
-                updateBossBarProgress();
             }
         }.runTaskTimer(plugin, 0, 20);
     }
@@ -114,7 +114,7 @@ public class Timer {
         bossBar.setTitle(
                 title + " : "
                 + Utilities.convertToTimeFormat(TOTAL_TIME - secondsPassed));
-        bossBar.setProgress(1 - (double) secondsPassed / TOTAL_TIME);
+        bossBar.setProgress(Math.max(0, 1 - (double) secondsPassed / TOTAL_TIME));
     }
 
     public int getSecondsPassed() {
