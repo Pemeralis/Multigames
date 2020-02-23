@@ -63,11 +63,11 @@ public class Timer {
         new BukkitRunnable() {
             @Override
             public void run() {
-                incrementTimer();
-                playTickingSound();
-                updateBossBarProgress();
-                if (getRemainingSeconds() == 0) {
-                    System.out.println("Timer has stopped!");
+                if (getRemainingSeconds() > 0) {
+                    incrementTimer();
+                    playTickingSound();
+                    updateBossBarProgress();
+                } else {
                     runRunnable();
                     cleanUp();
                     cancel();
