@@ -36,11 +36,15 @@ public class MysteryCommand implements CommandExecutor {
             sendAvailableTests(sender);
             return true;
         }
-        String argument = args[0];
-        String[] testArguments = Arrays.copyOfRange(args, 0, args.length - 1);
-        Test test = runnableTests.get(argument);
+
+        String searchedTest = args[0];
+        String[] testArguments = Arrays.copyOfRange(args, 1, args.length);
+
+        Test test = runnableTests.get(searchedTest);
+
         if (test != null) test.run(sender, testArguments);
-        else sender.sendMessage(argument + " is not a testable argument!");
+        else sender.sendMessage(searchedTest + " is not a testable argument!");
+
         return true;
     }
 
@@ -55,20 +59,22 @@ public class MysteryCommand implements CommandExecutor {
             sender.sendMessage("No! This is not how you're supposed to play the game!");
             return;
         }
-        if (args.length < 1) {
-            sender.sendMessage("You didn't provide anything to display!");
-        }
         Player player = (Player) sender;
 
         for (int i = 0; i < args.length; i++) {
             args[i] = Utilities.colorText(args[i]);
         }
-        String actionBar = args.length >= 1 ? args[0] : null;
-        String title = args.length >= 2 ? args[1] : null;
-        String subtitle = args.length >= 3 ? args[2] : null;
 
-        player.sendActionBar("ActionBar message sent!");
-        player.sendTitle("Title message has been sent!", "Subtitle too!", 0, 40, 20);
+        String combinedArguments = String.join(" ", args);
+        args = combinedArguments.split("(\\\\\\\\)"); // separates between "\\"s
+
+        String actionBar = (args.length >= 1 && !args[0].equals("NULL")) ? args[0] : "";
+        String title = (args.length >= 2 && !args[1].equals("NULL")) ? args[1] : "";
+        String subtitle = (args.length >= 3 && !args[2].equals("NULL")) ? args[2] : "";
+        int time = (args.length >= 4 && Integer.getInteger(args[3]) != null) ? Integer.parseInt(args[3]) : 60;
+
+        player.sendActionBar(actionBar);
+        player.sendTitle(title, subtitle, 0, time, time/3);
     }
 
     private void testParticles(CommandSender sender, String[] args) {
