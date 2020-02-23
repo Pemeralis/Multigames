@@ -9,6 +9,7 @@ import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitScheduler;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.Set;
 
@@ -21,6 +22,7 @@ public class Timer {
 
     private final BossBar bossBar;
     private final String title;
+    private BukkitTask task;
 
     private Sound tickingSound;
     private float tickingPitch;
@@ -42,6 +44,7 @@ public class Timer {
                 builder.color,
                 builder.style
         );
+        task = null;
 
         tickingSound = builder.tickingSound;
         tickingPitch = builder.tickingPitch;
@@ -60,10 +63,10 @@ public class Timer {
             bossBar.addPlayer(player);
         }
 
-        new BukkitRunnable() {
+        task = new BukkitRunnable() {
             @Override
             public void run() {
-                if (getRemainingSeconds() > 0) {
+                if (getRemainingSeconds() > 1) {
                     incrementTimer();
                     playTickingSound();
                     updateBossBarProgress();
@@ -129,8 +132,9 @@ public class Timer {
         return title;
     }
 
-    private void cleanUp() {
+    public void cleanUp() {
         bossBar.removeAll();
+        if (task != null) task.cancel();
     }
 
     public static class TimerBuilder {
