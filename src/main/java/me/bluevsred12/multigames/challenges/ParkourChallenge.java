@@ -48,6 +48,7 @@ public class ParkourChallenge {
     private static final Material PODIUM_VERIFICATION_TYPE = Material.BLACK_GLAZED_TERRACOTTA;
 
     private final Set<GameState> ongoingStates;
+
     private enum GameState {
         TEAM_SELECTION,
         WAITING_PERIOD,
@@ -67,8 +68,8 @@ public class ParkourChallenge {
         ongoingTimer = null;
 
         world = plugin.getMainWorld();
-        redTeam = new Team(this,"Red", new Location(world, 61.0, 178, -316.0));
-        blueTeam = new Team(this,"Blue", new Location(world, 75.0, 178, -301.0));
+        redTeam = new Team(this, "Red", new Location(world, 61.0, 178, -316.0));
+        blueTeam = new Team(this, "Blue", new Location(world, 75.0, 178, -301.0));
 
         TEAM_SELECTION_LOCATION = new Location(world, 68, 194, -308);
 
@@ -101,10 +102,10 @@ public class ParkourChallenge {
         }
 
         Timer timer = new Timer.TimerBuilder(
-                        plugin,
-                        competingPlayers,
-                        12,
-                        "Team selection period")
+                plugin,
+                competingPlayers,
+                12,
+                "Team selection period")
                 .setRunnable(this::startWaitingPeriod)
                 .setBarStyle(BarStyle.SEGMENTED_12)
                 .setBarColor(BarColor.WHITE)
@@ -187,7 +188,7 @@ public class ParkourChallenge {
 
         if (team != null) {
             notifier.sendTitle(team.getName() + " team wins!",
-                    team.getName() + "team.getName() + \" team ", 100);
+                    team.getName() + " team has completed their podium!", 100);
         } else {
             notifier.sendTitle("No contest.", "", 100);
         }
@@ -220,7 +221,7 @@ public class ParkourChallenge {
 
         // Was this placed on the right type of stairs?
         if (trophy.getStairs() != blockAdjacent.getType()) {
-            player.spawnParticle(Particle.BARRIER, placedBlock.getLocation().add(0.5, 0.5,0.5), 1);
+            player.spawnParticle(Particle.BARRIER, placedBlock.getLocation().add(0.5, 0.5, 0.5), 1);
             player.playSound(placedBlock.getLocation(), Sound.BLOCK_BAMBOO_FALL, 1f, 1f);
             return TrophyPlacementType.MISMATCHED_PODIUM;
         }
@@ -256,8 +257,8 @@ public class ParkourChallenge {
 
         Bukkit.broadcastMessage(
                 playerName + " has placed the "
-                + trophyName + " trophy on "
-                + team.getName() + " team's podium!");
+                        + trophyName + " trophy on "
+                        + team.getName() + " team's podium!");
 
         monument.setTrophyAnimating(trophy);
         notifyTeamProgress();
@@ -342,7 +343,7 @@ public class ParkourChallenge {
 
     boolean pickupTrophy(Player player, Block woodBlock) {
         Trophy trophy = Trophy.getTrophy(woodBlock.getType());
-        Block pressurePlate = woodBlock.getRelative(0,  1, 0);
+        Block pressurePlate = woodBlock.getRelative(0, 1, 0);
         if (trophy == null) return false;
 
         player.getInventory().addItem(trophy.getItemStack());
@@ -588,6 +589,7 @@ class PressurePlateListener implements Listener {
         this.challenge = challenge;
         this.plugin = plugin;
     }
+
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent e) {
         Player player = e.getPlayer();
@@ -717,8 +719,7 @@ enum Trophy {
     BIRCH("Birch"),
     JUNGLE("Jungle"),
     ACACIA("Acacia"),
-    DARK_OAK("Dark Oak")
-    ;
+    DARK_OAK("Dark Oak");
 
     private final String nameID;
     private final String displayFriendlyName;
