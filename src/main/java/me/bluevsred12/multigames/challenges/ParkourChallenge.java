@@ -52,7 +52,7 @@ public class ParkourChallenge {
         TEAM_SELECTION,
         WAITING_PERIOD,
         ENDGAME, PLAYING_PERIOD,
-        CONCLUDING
+        CLOSING
     }
 
     private Set<Listener> listeners;
@@ -182,9 +182,14 @@ public class ParkourChallenge {
     }
 
     private void declareWinner(Team team) {
+        ongoingStates.clear();
+        ongoingStates.add(GameState.CLOSING);
+
         if (team != null) {
             notifier.sendTitle(team.getName() + " team wins!",
                     team.getName() + "team.getName() + \" team ", 100);
+        } else {
+            notifier.sendTitle("No contest.", "", 100);
         }
 
         competingPlayers.forEach(player -> {
@@ -423,6 +428,7 @@ public class ParkourChallenge {
         }
 
         if (ongoingTimer != null) ongoingTimer.cleanUp();
+        ongoingStates.clear();
 
         redTeam.cleanUp(world);
         blueTeam.cleanUp(world);
