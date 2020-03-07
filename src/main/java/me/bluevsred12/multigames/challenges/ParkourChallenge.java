@@ -172,7 +172,7 @@ public class ParkourChallenge {
         boolean isBlueComplete = blueTeam.getTrophyMonument().isComplete();
         if (!isBlueComplete && !isRedComplete) return;
         if (isRedComplete && isBlueComplete) { // make sure this doesn't happen in the future
-            notifier.sendTitle("Uh oh!", "Both teams won simultaneously. Strange!", 100);
+            notifier.sendTitle("Uh oh!", "Both teams won simultaneously!", 100);
             declareWinner(null);
             return;
         }
