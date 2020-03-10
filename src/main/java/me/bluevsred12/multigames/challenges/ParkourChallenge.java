@@ -168,6 +168,8 @@ public class ParkourChallenge {
     }
 
     void checkForWinner() {
+        if (!isPlayingPeriod()) return;
+
         boolean isRedComplete = redTeam.getTrophyMonument().isComplete();
         boolean isBlueComplete = blueTeam.getTrophyMonument().isComplete();
         if (!isBlueComplete && !isRedComplete) return;
