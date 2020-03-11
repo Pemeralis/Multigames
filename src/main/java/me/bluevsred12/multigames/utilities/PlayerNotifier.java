@@ -2,6 +2,7 @@ package me.bluevsred12.multigames.utilities;
 
 import org.bukkit.entity.Player;
 
+import java.util.HashSet;
 import java.util.Set;
 
 public class PlayerNotifier {
@@ -9,10 +10,20 @@ public class PlayerNotifier {
 
     private String formattingPrefix;
 
+    public PlayerNotifier() {
+        receivers = new HashSet<>();
+
+        formattingPrefix = "";
+    }
+
     public PlayerNotifier(Set<Player> players) {
         receivers = players;
 
         formattingPrefix = "";
+    }
+
+    public void addReceivers(Set<Player> players) {
+        receivers.addAll(players);
     }
 
     public void setFormattingPrefix(String formattingPrefix) {
